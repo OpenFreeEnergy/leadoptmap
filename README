@@ -1,0 +1,6 @@
+What's here:
+
+- prototype directory: Mobley lab prototype implementation of the clustering tools, currently being updated. As of 6/11/12, only the MCSS_tool.py, toolkit for obtaining MCSS scores, is here. Shuai Liu will be adding more
+
+What's coming:
+- test sets: SAMPL3, trypsin, and small molecule sets used for testing the calculation planning
