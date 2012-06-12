@@ -1,6 +1,20 @@
 What's here:
 
-- prototype directory: Mobley lab prototype implementation of the clustering tools, currently being updated. As of 6/11/12, only the MCSS_tool.py, toolkit for obtaining MCSS scores, is here. Shuai Liu will be adding more
+- prototype directory:
+
+Mobley lab prototype implementation of the clustering tools, currently being updated. As of 6/11/12, only the MCSS_tool.py, toolkit for obtaining MCSS scores, is here.
+
+Update 6/12/12:
+
+Usage of the prototype version (currently uses several separate tools):
+
+1 use getMCSS_ScoreMatrix_Unstrict.py and getMCSS_ScoreMatrix.py to get the MCSS score matrix using two different approaches to scoring similarity (relating to ring checking)
+
+2 use hierarchical_cluster.py to hierarchical clusters -- structural clusters of molecules
+
+3 use get_cluster_list_and_path.py to get a list of clusters (converts the dictionary output by #2 to a list of clusters and also gets paths of mol2 files on disk)
+
+4 use calculation_planning.py to plan the calculation and get the final map (also calls on tool for cycle detection)
 
 What's coming:
 - test sets: SAMPL3, trypsin, and small molecule sets used for testing the calculation planning
