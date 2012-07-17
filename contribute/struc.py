@@ -3,7 +3,10 @@
 
 
 
+import kbase
+
 import os
+import hashlib
 
 
 
@@ -60,6 +63,11 @@ class Struc( object ) :
         raise NotImplementedError( "`_atom()' method not implemented by subclass" )
 
 
+
+    def title( self ) :
+        raise NotImplementedError( "`title()' method not implemented by subclass" )
+    
+
         
     def heavy_atoms( self ) :
         """
@@ -106,6 +114,14 @@ try :
             self.atom = self._struc.atom
             self.bond = self._struc.bond
 
+
+
+        def title( self ) :
+            """
+            Returns the title of this structure. (Normally title's a user-friendly description)
+            """
+            return self._struc.title
+        
             
             
         def heavy_atoms( self ) :
@@ -146,7 +162,7 @@ try :
 
             
             
-    def read_maestro_file( filename ) :
+    def read_mae_file( filename ) :
         """
         Reads a .mae file and returns a list of `ScrhodStruc' objects.
         """
@@ -159,7 +175,21 @@ try :
         except :
             pass
         return ret
-        
+
+
+
+    def read_n_mae_files( filenames ) :
+        """
+        `filenames' is a list of file names with the ".mae" as the extension in the name. Reads the files and deposits them
+        into the `KBASE'.
+        """
+        strucid = []
+        for fn in filenames :
+            struc = read_mae_file( fn )
+            id    = hashlib.sha1( struc.title() ).hexdigest()
+            strucid.append( KBASE.deposit( id, struc ) )
+        return strucid
+    
 except ImportError :
     pass
 
