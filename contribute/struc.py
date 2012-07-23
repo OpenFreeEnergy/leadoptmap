@@ -3,7 +3,7 @@
 
 
 
-import kbase
+from kbase import KBASE
 
 import os
 import hashlib
@@ -98,7 +98,7 @@ class Struc( object ) :
     
 
 try :
-    import schrodinger.application.structure as structure
+    import schrodinger.structure as structure
     
     class SchrodStruc( Struc ) :
         """
@@ -132,6 +132,7 @@ try :
             for e in self.atom :
                 if (e.atomic_number > 1) :
                     ret.append( int( e ) )
+            return ret
 
 
 
@@ -162,34 +163,47 @@ try :
 
             
             
-    def read_mae_file( filename ) :
+    def read_file( filename, format = None ) :
         """
         Reads a .mae file and returns a list of `ScrhodStruc' objects.
+
+        @type  filename: C{str}
+        @param filename: Name of the structure file
+        @type  format  : C{str} or C{None}
+        @param format  : Specify the format of the file. It must be one of the following case-sensitive strings: "pdb", "sd",
+                         "mol2", and "maestro". If its value is C{None}, the format will be determined from extension name.
         """
         ret    = []
-        reader = structure.MaestroReader( filename )
-        try :
-            while (True) :
-                ct = reader.next()
-                ret.append( SchrodStruc( ct ) )
-        except :
-            pass
+        for ct in structure.StructureReader( filename, format = format ) :
+            ret.append( SchrodStruc( ct ) )
         return ret
 
 
 
-    def read_n_mae_files( filenames ) :
+    def read_n_files( filenames ) :
         """
-        `filenames' is a list of file names with the ".mae" as the extension in the name. Reads the files and deposits them
-        into the `KBASE'.
+        `filenames' is a list of file names. The format of each file will be determined from the file's extension name. Reads
+        the files and deposits them into the `KBASE'. Returns a list of keys.
         """
         strucid = []
         for fn in filenames :
-            struc = read_mae_file( fn )
-            id    = hashlib.sha1( struc.title() ).hexdigest()
-            strucid.append( KBASE.deposit( id, struc ) )
+            strucs = read_file( fn )
+            for e in strucs :
+                id = hashlib.sha1( e.title() ).hexdigest()
+                strucid.append( KBASE.deposit( id, e ) )
         return strucid
     
-except ImportError :
+except ImportError, e :
+    raise e
     pass
 
+
+
+
+if ("__main__" == __name__) :
+    filenames = ["xfer3.10.mol2", "xfer3.11.mol2",]
+    id_list = read_n_files( filenames )
+    mol0 = KBASE.ask( id_list[0] )
+    print mol0.title(), len( mol0.heavy_atoms() )
+    mol1 = KBASE.ask( id_list[1] )
+    print mol1.title(), len( mol1.heavy_atoms() )
