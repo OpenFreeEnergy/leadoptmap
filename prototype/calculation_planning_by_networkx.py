@@ -6,7 +6,6 @@ import pickle
 #from openeye.oechem import *
 from numpy import *
 import copy
-from connection_function import *
 import networkx as nx
 from schrodinger import structure
 
@@ -185,6 +184,13 @@ def get_most_similar_members_from_lists( clus1, clus2, debug = False, scores = m
                 besttitle2 = title2
 
     return besttitle1, besttitle2
+
+def count_non_zero (score_dic):
+    count = 0
+    for i in score_dic.keys():
+        if score_dic[i] > 0:
+            count += 1
+    return count
 
 def incomplete_clusters_networkx(cluster,Gr):
     communicability = nx.communicability(Gr)
