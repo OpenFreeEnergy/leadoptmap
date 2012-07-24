@@ -40,7 +40,7 @@ class Kbase( object ) :
     
 
     def deposit_extra( self, key, tag, knowlet ) :
-        if (key not in self._knowledege) :
+        if (key not in self._knowledge) :
             raise KeyError( "'%s' not found in the knowledge base." )
         if (key not in self._extra) :
             self._extra[key] = {}
