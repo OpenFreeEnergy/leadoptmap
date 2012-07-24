@@ -64,8 +64,21 @@ class Struc( object ) :
 
 
 
+    def copy( self ) :
+        raise NotImplementedError( "`copy' method not implemented by subclass" )
+
+    
+
+    def extract( self, indices ) :
+        """
+        Return a new structure object which contains the atoms of the current structure that appear in the specified list.
+        """
+        raise NotImplementedError( "`extract' method not implemented by subclass" )
+    
+    
+
     def title( self ) :
-        raise NotImplementedError( "`title()' method not implemented by subclass" )
+        raise NotImplementedError( "`title' method not implemented by subclass" )
     
 
         
@@ -116,6 +129,22 @@ try :
 
 
 
+        def copy( self ) :
+            """
+            Returns a copy of this structure.
+            """
+            return self._struc.copy()
+
+
+
+        def extract( self, indices ) :
+            """
+            Return a new structure object which contains the atoms of the current structure that appear in the specified list.
+            """
+            return self._struc.extract( indices, True )
+
+        
+        
         def title( self ) :
             """
             Returns the title of this structure. (Normally title's a user-friendly description)
@@ -189,7 +218,7 @@ try :
         for fn in filenames :
             strucs = read_file( fn )
             for e in strucs :
-                id = hashlib.sha1( e.title() ).hexdigest()
+                id = hashlib.sha1( e.title().strip() ).hexdigest()
                 strucid.append( KBASE.deposit( id, e ) )
         return strucid
     
