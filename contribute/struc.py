@@ -144,7 +144,7 @@ try :
 
 
         
-        def write( filename, format = None, mode = "a" ) :
+        def write( self, filename, format = None, mode = "a" ) :
             """
             Writes this structure into a file in the designated format.
 
@@ -157,7 +157,7 @@ try :
                 if (os.path.isfile( filename )) : self._struc.append( filename, format )
                 else                            : self._struc.write ( filename, format )
             elif ('w' == mode) :
-                self._struc.write ( filename, format )
+                self._struc.write( filename, format )
             else :
                 raise ValueError( "Invalid value for `mode' argument: '%s', should be one of 'a' and 'w'." )
 
@@ -173,7 +173,7 @@ try :
         @param format  : Specify the format of the file. It must be one of the following case-sensitive strings: "pdb", "sd",
                          "mol2", and "maestro". If its value is C{None}, the format will be determined from extension name.
         """
-        ret    = []
+        ret = []
         for ct in structure.StructureReader( filename, format = format ) :
             ret.append( SchrodStruc( ct ) )
         return ret
