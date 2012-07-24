@@ -124,7 +124,7 @@ for molfile in inputmolfiles:
 
 file = open('chargedict.pickle', 'w')
 pickle.dump(charges, file)
-
+file.close()
 
 #=======================================================================
 #FUNCTION DEFINITIONS
@@ -221,11 +221,14 @@ def most_distant_members( cluster, simcutoff = 0, scores = mcss_scores):
         if this_maxdist > maxdist:
             maxdist = this_maxdist #Store new maximum distance
             #Find node pair
+            member2_list = []
             for member2 in shortest_distance.keys():
                 if shortest_distance[member2] == maxdist:
-                    title1 = member
-                    title2 = member2
-                    break
+                    member2_list.append(member2)
+            member2_list.sort()
+            title1 = member
+            title2 = member2_list[0]
+            
 
     #Return the maximum distance and the cluster members
     return (title1, title2, maxdist)
@@ -542,6 +545,11 @@ for title in titles:
             gr.add_edge( (title, title2)) 
             gr.add_edge_attribute( (title, title2), ['color', 'black']) #Green edges for those edges added due to greatest similarity
 
+########check graph
+file01 = open('after_step_one.pickle', 'w')
+pickle.dump(gr, file01)
+file01.close()
+
 #=================================================================
 # Step 2 of planning strategy: Every node of every cluster must be accessible from every other node within the cluster
 # To do this:
@@ -594,6 +602,12 @@ while len(incomplete) > 0:
     #Recompute incomplete clusters
     incomplete = incomplete_clusters( clusterlist, gr)
 
+
+########check graph
+file02 = open('after_step_two.pickle', 'w')
+pickle.dump(gr, file02)
+file02.close()
+
 #=================================================================
 # Step 3 of planning strategy: 
 # (a) Every cluster should have no more than (MAXDIST) calculations to span across it -- that is to say, the maximum distance between any two members must be no more than MAXDIST
@@ -634,9 +648,9 @@ for (idx, clus) in enumerate(clusterlist):
 
         if debug and iter>0: print "   For cluster %s, added %s connections due to MAXDIST" % (idx, iter)
 
-f1 = open('graph_new_fuction.pickle','w')
-pickle.dump(gr,f1)
-f1.close
+f10 = open('graph_new_fuction.pickle','w')
+pickle.dump(gr,f10)
+f10.close()
 
 # Step 3b: Every cluster member should be in at least one cycle; if a cluster member is not,  create one by combining the two most distant elements with adequate similarity then check again. (NOTE: This could be streamlined by not doing this iteratively -- at the initial pass, just add one connection for every cluster member not already in a cycle).
 print "ENSURING EVERY CLUSTER MEMBER IS IN AT LEAST ONE CYCLE..." 
@@ -741,6 +755,11 @@ print "Before graph............"
 #file = open('graph.pickle','w')
 #pickle.dump(gr,file)
 #file.close
+
+########check graph
+file03 = open('after_step_three.pickle', 'w')
+pickle.dump(gr, file03)
+file03.close()
 
 #WRITE OUT CLUSTERS ONCE BEFORE LINKING
 dot = write(gr)
@@ -877,6 +896,12 @@ for (idx, cluster) in enumerate(clusterlist):
                 if not nodepair in cluster_calculations[ idx]: cluster_calculations[ idx ].append( nodepair)
             else:
                 if not nodepair in cross_calculations: cross_calculations.append( nodepair )
+
+
+########check graph
+file04 = open('final_graph.pickle', 'w')
+pickle.dump(gr, file04)
+file04.close()
 
 
 file = open('planned_calculations.pickle', 'w')
