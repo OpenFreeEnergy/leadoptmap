@@ -52,8 +52,14 @@ class Struc( object ) :
 
     """
     def __init__( self ) :
+        # Public attributes:
         self.atom = _AtomContainer( self )
 
+        
+
+    def __str__( self ) :
+        return title
+    
 
         
     def _atom( self, index ) :
@@ -61,6 +67,14 @@ class Struc( object ) :
         Returns the `index'-th atom.
         """
         raise NotImplementedError( "`_atom()' method not implemented by subclass" )
+
+
+
+    def id( self ) :
+        """
+        Returns the ID of this structure.
+        """
+        return hashlib.sha1( self.title() ).hexdigest()
 
 
 
@@ -79,6 +93,11 @@ class Struc( object ) :
 
     def title( self ) :
         raise NotImplementedError( "`title' method not implemented by subclass" )
+    
+    
+
+    def set_title( self, new_title ) :
+        raise NotImplementedError( "`set_title' method not implemented by subclass" )
     
 
         
@@ -141,7 +160,7 @@ try :
             """
             Return a new structure object which contains the atoms of the current structure that appear in the specified list.
             """
-            return self._struc.extract( indices, True )
+            return SchrodStruc( self._struc.extract( indices, True ) )
 
         
         
@@ -150,6 +169,14 @@ try :
             Returns the title of this structure. (Normally title's a user-friendly description)
             """
             return self._struc.title
+        
+            
+            
+        def set_title( self, new_title ) :
+            """
+            Sets a new title to this structure.
+            """
+            self._struc.title = new_title
         
             
             
@@ -218,8 +245,7 @@ try :
         for fn in filenames :
             strucs = read_file( fn )
             for e in strucs :
-                id = hashlib.sha1( e.title().strip() ).hexdigest()
-                strucid.append( KBASE.deposit( id, e ) )
+                strucid.append( KBASE.deposit( e.id(), e ) )
         return strucid
     
 except ImportError, e :
