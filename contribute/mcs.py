@@ -13,6 +13,9 @@ import hashlib
 
 
 class Mcs( object ) :
+    """
+    Base class of MCSS engine
+    """
     def __init__( self ) :
         """
 
@@ -23,7 +26,13 @@ class Mcs( object ) :
 
     def search( self, mol0, mol1 ) :
         """
+        Finds out the maximum common substructure between C{mol0} and C{mol1} and deposits it in C{KBASE}. Returns the ID of
+        the substructure in C{KBASE}.
 
+        @type  mol0: C{Struc}
+        @param mol0: First molecule (the reference molecule)
+        @type  mol1: C{Struc}
+        @param mol1: Second molecule
         """
         raise NotImplementedError( "`search' method not implemented in subclass" )
 
@@ -31,7 +40,11 @@ class Mcs( object ) :
 
     def search_all( self, mols ) :
         """
+        Finds out the maximum common substructures between any pair of the given structures and deposits them in C{KBASE}.
+        Returns a list of IDs of the substructures in C{KBASE}.
 
+        @type  mols: C{list} of C{Struc}
+        @param mols: A list of molecules
         """
         raise NotImplementedError( "`search' method not implemented in subclass" )
         
@@ -44,6 +57,9 @@ try :
         def __init__( self, atom_expr = oechem.OEExprOpts_EqONS,
                       bond_expr = oechem.OEExprOpts_BondOrder|oechem.OEExprOpts_EqSingleDouble|oechem.OEExprOpts_EqAromatic,
                       ringchecking = 'Strict', min_num_atoms = 4, is_approximate = True ) :
+            """
+            (To be implemented)
+            """
             self._atom_expr      = atom_expr
             self._bond_expr      = bond_expr
             self._ringchecking   = ringchecking
@@ -54,7 +70,7 @@ try :
 
         def search( self, mol0, mol1 ) :
             """
-            Returns a `Struc' object, which is maximum common substructure.
+            (To be implemented)
             """
             import MCSS_tool
             ret = MCSS_tool.determineMCSS_requireRings( mol1, mol0, debug = False, min_atoms = self._min_num_atoms,
@@ -68,8 +84,8 @@ try :
 
         def search_all( self, mols ) :
             """
-            O(N^2). Needs optimization.
-            Returns a dictionary: key = pair of molecule indices in the given list, value = `Struc' object.
+            N.B.: O(N^2). Needs optimization.
+            (To be implemented)
             """
             ret     = {}
             num_mol = len( mols )
@@ -85,7 +101,24 @@ except ImportError :
 
 try :
     class McsMatch( object ) :
+        """
+        A class to temporarily store each entry (i.e., row) in Schrodinger's MCS result
+        """
         def __init__( self, mol_name0, mol_name1, mcs_atom0, mcs_atom1 ) :
+            """
+            @type  mol_name0: C{str}
+            @param mol_name0: First structure/molecule's name (or title)
+            @type  mol_name1: C{str}
+            @param mol_name1: Second structure/molecule's name (or title)
+            @type  mcs_atom0: C{str}
+            @param mcs_atom0: A list of comma separated integer numbers that are atom indices of the first molecule. If the
+                              first molecule is trimmed such that only the specified atoms are left, you get the maximum
+                              common substructure.
+            @type  mol_name1: C{str}
+            @param mcs_atom1: A list of comma separated integer numbers that are atom indices of the second molecule. If the
+                              second molecule is trimmed such that only the specified atoms are left, you get the maximum
+                              common substructure.
+            """
             self.mol_name0 = mol_name0.strip()
             self.mol_name1 = mol_name1.strip()
             self.mcs_atom0 = mcs_atom0
@@ -95,6 +128,28 @@ try :
             
     class SchrodMcs( Mcs ) :
         def __init__( self, atomtyping = 3 ) :
+            """
+            @type  atomtyping: C{int}
+            @param atomtyping: Schrodinger Canvas' atom typing scheme (see below)
+                                1 - All atoms equivalent; all bonds equivalent.
+                                2 - Atoms distinguished by HB acceptor/donor; all bonds equivalent.
+                                3 - Atoms distinguished by hybridization state; all bonds equivalent.
+                                4 - Atoms distinguished by functional type: {H}, {C}, {F,Cl}, {Br,I}, {N,0},
+                                    {S}, {other}; bonds by hybridization.
+                                5 - Mol2 atom types; all bonds equivalent.
+                                6 - Atoms distinguished by whether terminal, halogen, HB acceptor/donor;
+                                    bonds distinguished by bond order.
+                                7 - Atomic number and bond order.
+                                8 - Atoms distinguished by ring size, aromaticity, HB acceptor/donor,
+                                    ionization potential, whether terminal, whether halogen; bonds
+                                    distinguished by bond order.
+                                9 - Carhart atom types (atom-pairs approach); all bonds equivalent.
+                               10 - Daylight invariant atom types; bonds distinguished by bond order.
+                               11 - Same as 7, but distinguishing aromatic from non-aromatic.
+                               12 - Same as 11, but distinguishing aliphatic atoms by ring/acyclic.
+                               13 - Same as 12, but distinguishing rings by size.
+                                C - Custom. Must be followed by location of a type definitions file.
+            """
             self._cmd    = os.path.join( os.environ['SCHRODINGER'], "utilities", "canvasMCS" )
             self._typing = atomtyping
             
