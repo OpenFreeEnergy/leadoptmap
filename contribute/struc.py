@@ -55,6 +55,9 @@ class Struc( object ) :
         # Public attributes:
         self.atom = _AtomContainer( self )
 
+        # Private attributes:
+        self._id = None
+
         
 
     def __str__( self ) :
@@ -74,7 +77,17 @@ class Struc( object ) :
         """
         Returns the ID of this structure.
         """
-        return hashlib.sha1( self.title() ).hexdigest()
+        if (self._id is None) :
+            self._id = hashlib.sha1( self.title() ).hexdigest()
+        return self._id
+
+
+
+    def set_id( self, id ) :
+        """
+        Sets the ID for this structure.
+        """
+        self._id = id
 
 
 
@@ -140,6 +153,7 @@ try :
             """
             `struc' should be a `schrodinger.structure.Structure' object.
             """
+            Struc.__init__( self )
             self._struc = struc
 
             # Public attributes:
@@ -245,7 +259,9 @@ try :
         for fn in filenames :
             strucs = read_file( fn )
             for e in strucs :
-                strucid.append( KBASE.deposit( e.id(), e ) )
+                id = KBASE.deposit( e.id(), e )
+                e.set_id( id )
+                strucid.append( id )
         return strucid
     
 except ImportError, e :
