@@ -1,0 +1,11 @@
+How to run on Schrodinger's infrastructure
+- Example command:
+    $SCHRODINGER/run main.py ../test_sets/sampl3_data_set/mol2_file
+  where $SCHRODINGER is the environment variable whose value should be the path of installed Schrodinger package,
+  main.py is the 'main.py' program, and '../test_sets/sampl3_data_set/mol2_file' is an argument for main.py,
+  specifying the path of the input structure files.
+- The Schrodinger package should include the Canvas product, which provides the Maximum Substructure search
+  algorithm that 'main.py' depends on.
+- The input structure files should be in either the mol2 or the mae file formats.
+
+
