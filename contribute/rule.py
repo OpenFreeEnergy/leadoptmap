@@ -20,7 +20,7 @@ class Rule( object ) :
 
 
 
-    def _similarity( self, id0, id1 ) :
+    def _similarity( self, id0, id1, **kwarg ) :
         """
         Given the IDs of two molecular structures in the C{KBASE}, return a similarity score of the two molecules.
         By default, we return 1, assuming there's no difference at the most basic level.
@@ -35,7 +35,7 @@ class Rule( object ) :
 
 
     
-    def similarity( self, id0, id1 ) :
+    def similarity( self, id0, id1, **kwarg ) :
         """
         Given the IDs of two molecular structures in the C{KBASE}, return a similarity score of the two molecules with all
         subrules combined.
@@ -49,13 +49,13 @@ class Rule( object ) :
         @type  id1: C{str}
         @param id1: ID of the second molecule in the C{KBASE}
         """
-        result = self._similarity( id0, id1 )
+        result = self._similarity( id0, id1, **kwarg )
         if (result > 0) :
             for e in self._subrules :
                 if (isinstance( e, list )) :
-                    result *= max( [e.similarity( id0, id1 )] )
+                    result *= max( [e.similarity( id0, id1, **kwarg )] )
                 else :
-                    result *= e.similarity( id0, id1 )
+                    result *= e.similarity( id0, id1, **kwarg )
         return result
 
 
@@ -81,18 +81,13 @@ class MinimumNumberOfAtom( Rule ) :
 
         
     def _similarity( self, id0, id1, **kwarg ) :
-        try :
-            mcs = KBASE.ask( hashlib.sha1( id0 + id1 ).hexdigest() )
-        except LookupError :
-            mcs = KBASE.ask( hashlib.sha1( id1 + id0 ).hexdigest() )
-
         # Uses the first common substructure.
-        mcs = mcs[0]
-        
+        mcs0 = KBASE.ask( kwarg["mcs_id"] )[0]
+
         if (self._heavy_only) :
-            num_atom = len( mcs.heavy_atoms() )
+            num_atom = len( mcs0.heavy_atoms() )
         else :
-            num_atom = mcs.atom
+            num_atom = mcs0.atom
         return float( num_atom >= self._threshold )
 
 
@@ -112,8 +107,8 @@ class Cutoff( Rule ) :
 
         
         
-    def similarity( self, id0, id1 ) :
-        simi = Rule.similarity( self, id0, id1 )
+    def similarity( self, id0, id1, **kwarg ) :
+        simi = Rule.similarity( self, id0, id1, **kwarg )
         if (simi < self._cutoff) :
             simi = 0.0
         return simi
@@ -130,22 +125,9 @@ class Mcs( Rule ) :
 
         
 
-    def _similarity( self, id0, id1 ) :
-        try :
-            mcs = KBASE.ask( hashlib.sha1( id0 + id1 ).hexdigest() )
-        except LookupError :
-            try :
-                mcs = KBASE.ask( hashlib.sha1( id1 + id0 ).hexdigest() )
-            except LookupError :
-                #raise LookupError( "MCS not found for %s and %s" % (KBASE.ask( id0 ).title(), KBASE.ask( id1 ).title(),) )
-                return 0
-            # Swaps the id0 and id1 values. We presumes the order of them matters. id0 should be the reference molecule.
-            id2 = id0
-            id0 = id1
-            id1 = id2
-            
+    def _similarity( self, id0, id1, **kwarg ) :
         # Uses the first common substructure.
-        mcs0 = mcs[0]
+        mcs0 = KBASE.ask( kwarg["mcs_id"] )[0]
 
         # Retrieves the parent molecules of the MCS.
         mol0 = KBASE.ask( id0 )
