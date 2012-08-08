@@ -104,12 +104,12 @@ try :
         """
         A class to temporarily store each entry (i.e., row) in Schrodinger's MCS result
         """
-        def __init__( self, mol_name0, mol_name1, mcs_atom0, mcs_atom1 ) :
+        def __init__( self, mol0_id, mol1_id, mcs_atom0, mcs_atom1 ) :
             """
-            @type  mol_name0: C{str}
-            @param mol_name0: First structure/molecule's name (or title)
-            @type  mol_name1: C{str}
-            @param mol_name1: Second structure/molecule's name (or title)
+            @type  mol0_id  : C{str}
+            @param mol0_id  : First structure/molecule's ID
+            @type  mol1_id  : C{str}
+            @param mol1_id  : Second structure/molecule's ID
             @type  mcs_atom0: C{str}
             @param mcs_atom0: A list of comma separated integer numbers that are atom indices of the first molecule. If the
                               first molecule is trimmed such that only the specified atoms are left, you get the maximum
@@ -119,8 +119,8 @@ try :
                               second molecule is trimmed such that only the specified atoms are left, you get the maximum
                               common substructure.
             """
-            self.mol_name0 = mol_name0.strip()
-            self.mol_name1 = mol_name1.strip()
+            self.mol0_id   = mol0_id
+            self.mol1_id   = mol1_id
             self.mcs_atom0 = mcs_atom0
             self.mcs_atom1 = mcs_atom1
 
@@ -161,19 +161,22 @@ try :
 
 
         def search_all( self, mols ) :
-            tmp_fname = "__temp_file_ok_to_delete_after_running__.mae"
+            mae_fname = "__temp_file_ok_to_delete_after_running__.mae"
             out_fname = "__temp_file_ok_to_delete_after_running__.csv"
             log_fname = "__temp_file_ok_to_delete_after_running__.log"
             log_fh    = open( log_fname, "w" )
 
-            if (os.path.isfile( tmp_fname )) :
-                os.remove( tmp_fname )
+            if (os.path.isfile( mae_fname )) :
+                os.remove( mae_fname )
 
             for mol in mols :
-                mol.write( tmp_fname )
+                title = mol.title()
+                mol.set_title( mol.id() )
+                mol.write( mae_fname )
+                mol.set_title( title )
                 
             cmd          = [self._cmd,
-                            "-imae",     tmp_fname,
+                            "-imae",     mae_fname,
                             "-opw",      out_fname,
                             "-atomtype", str( self._typing ),
                             ]
@@ -201,22 +204,34 @@ try :
 
             ret = []
             for e in mcs_match :
-                mcs_title = "mcs: %s, %s" % (e.mol_name0, e.mol_name1,)
-                if (e.mol_name0 > e.mol_name1) :
-                    mcs_title = "mcs: %s, %s" % (e.mol_name1, e.mol_name0,)
-                    
-                id0       = hashlib.sha1( e.mol_name0 ).hexdigest()
-                id1       = hashlib.sha1( e.mol_name1 ).hexdigest()
-                mcs_id    = hashlib.sha1( id0 + id1   ).hexdigest()
+                id0       = e.mol0_id
+                id1       = e.mol1_id
+                mol0      = KBASE.ask( id0 )
+                mol1      = KBASE.ask( id1 )
+                name0     = mol0.title()
+                name1     = mol1.title()
+                mcs_title = "mcs@%s..%s" % (name0, name1,)
                 atom_list = [int( i ) for i in e.mcs_atom0.split( ',' )]
-                mcs_mol0  = KBASE.ask( id0 ).extract( atom_list )
+                mcs_mol0  = mol0.extract( atom_list )
                 
                 mcs_mol0.set_title( mcs_title )
-                KBASE.deposit      ( mcs_id, [mcs_mol0,]                )
-                KBASE.deposit_extra( mcs_id, "mcs_parents", (id0, id1,) )
-                ret.append( mcs_id )
+                mcs_mol0.set_id   ( None      )
+                KBASE.deposit      ( mcs_mol0.id(), [mcs_mol0,]                )
+                KBASE.deposit_extra( mcs_mol0.id(), "mcs-parents", (id0, id1,) )
+                ret.append( mcs_mol0.id() )
 
             return ret
+
+        
+
+    def get_parent_ids( mcs_id ) :
+        """
+        Returns a pair of IDs of the common substructure's parents.
+
+        @type  mcs_id: C{str}
+        @param mcs_id: ID of the common substructure
+        """
+        return KBASE.ask( mcs_id, "mcs-parents" )
         
 except ImportError :
     pass
@@ -230,8 +245,8 @@ if ("__main__" == __name__) :
     mol1      = KBASE.ask( id_list[1] )
     mcs       = SchrodMcs( 3 )
     mcs_id    = mcs.search( mol0, mol1 )[0]
-    mol_id    = KBASE.ask( mcs_id, "mcs_parents" )[0]
-    mcs_struc = KBASE.ask( mcs_id )
+    mol_id    = KBASE.ask( mcs_id, "mcs-parents" )[0]
+    mcs_struc = KBASE.ask( mcs_id )[0]
     mol_struc = KBASE.ask( mol_id )
 
     out_fname = "out.mae"
