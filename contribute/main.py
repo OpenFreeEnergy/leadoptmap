@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 
 # Debug switch
-DEBUG = True
+DEBUG = False
 
 
 
@@ -35,14 +35,27 @@ def main( mol_fnames ) :
         
     mcs_engine = mcs.SchrodMcs( 3 )
     mcs_ids    = mcs_engine.search_all( mols )
+    basic_rule = rule.Mcs( rule.MinimumNumberOfAtom() )
 
     if (DEBUG) :
         for id in mcs_ids :
             mol_id = mcs.get_parent_ids( id )
-            print "%.3f %s" % (rule.MCS.similarity( mol_id[0], mol_id[1], mcs_id = id ), KBASE.ask( id )[0].title(),)
+            print "%.3f %s" % (basic_rule.similarity( mol_id[0], mol_id[1], mcs_id = id ), KBASE.ask( id )[0].title(),)
 
-    g = graph.create( mcs_ids, rule.MCS )
-    l = networkx.spring_layout( g, iterations = 32, weight = "similarity", scale = 100 )
+    # Gets graph (`g') and clusters (`c').
+    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.2, max_csize = 128, num_c2c = 1 )
+
+    if (DEBUG) :
+        print "%d clusters (counted as the connected components in graph):" % len( c )
+        c.sort( lambda x, y : len( x ) - len( y ) )
+        for i, e in enumerate( c ) :
+            print "cluser #%d, %d structures:" % (i, len( e ),)
+            titles = [KBASE.ask( id ).title() for id in e]
+            titles.sort()
+            for t in titles :
+                print "  %s" % t 
+ 
+    l = networkx.spring_layout( g, iterations = 256, weight = "similarity", scale = 10 )
     networkx.draw_networkx( g, pos = l, with_labels = False )
     plt.savefig( "path.png" )
 
