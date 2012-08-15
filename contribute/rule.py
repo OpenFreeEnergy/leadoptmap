@@ -137,8 +137,8 @@ class Mcs( Rule ) :
 
 
 
-# MCS rule: A combination of the following rules: Mcs, MinimumNumberOfAtom, and Cutoff.
-MCS = Cutoff( 0.2, Mcs( MinimumNumberOfAtom() ) )
+# Example of a complex rule: A combination of a few simple rules (in case, they are Mcs, MinimumNumberOfAtom, and Cutoff).
+# cutoff_simi = Cutoff( 0.2, Mcs( MinimumNumberOfAtom( 4 ) ) )
 
 
 
