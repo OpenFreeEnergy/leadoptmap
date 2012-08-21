@@ -71,9 +71,16 @@ def trim_cluster( g, cluster, num_edges ) :
     for e in cluster :
         r = sorted( g.edges( e, data = True ), lambda x, y : cmp_edge( g, x, y ) )
         edges.extend( r[-num_edges:] )
-        
-    edges     = [(e[0], e[1],) for e in edges]
-    del_edges = []
+
+    sg = networkx.Graph( networkx.subgraph( g, cluster ) )
+    for e in sg.edges() :
+        sg[e[0]][e[1]]["reversed_similarity"] = -sg[e[0]][e[1]]["similarity"]
+
+    mst_edges = networkx.minimum_spanning_edges( sg, "reversed_similarity" )
+    
+    edges      = [(e[0], e[1],) for e in edges    ]
+    edges     += [(e[0], e[1],) for e in mst_edges]
+    del_edges  = []
     for e in g.edges( cluster ) :
         if (e not in edges and (e[1], e[0],) not in edges) :
             del_edges.append( e )
@@ -125,12 +132,16 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     # Trims clusters.
     for e in clusters :
         trim_cluster( desired, e, 2 )
-        
+
+    n = len( clusters )
+    print "%d clusters in total" % n
+    for i, c in enumerate( clusters ) :
+        print "  size of cluster #%02d: %d" % (i, len( c ),)
+    
     # Connects the clusters.
-    if (1 < len( clusters )) :
+    if (1 < n) :
         i = 0
-        n = len( clusters )
-        while (i < n - 1) :
+        while (i < n) :
             j = i + 1
             while (j < n) :
                 edges = networkx.edge_boundary( complete, clusters[i], clusters[j] )
@@ -141,11 +152,14 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
                     j += 1
                     continue
                 edges.sort( lambda x, y : cmp_edge( complete, x, y ) )
+                print "number of boundary edges btw c#%d and c#%d: %d" % (i, j, len( edges ),)
                 for k in range( -1, -num_c2c - 1, -1 ) :
                     edge  = edges[k]
                     node0 = edge[0]
                     node1 = edge[1]
-                    desired.add_edge( node0, node1, similarity = complete[node0][node1]["similarity"], boundary = True )
+                    simi  = complete[node0][node1]["similarity"]
+                    desired.add_edge( node0, node1, similarity = simi, boundary = True )
+                    print "  boundary similarity = %f" % simi
                 j += 1
             i += 1
 
