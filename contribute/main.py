@@ -77,9 +77,10 @@ if ("__main__" == __name__) :
             print os.path.basename( fname )
         elif (n == 16) :
             print "(more)..."
+            break
         n += 1
     print "--------------------------------------------"
     print "%d files in total" % len( mol_fnames )
     if (len( mol_fnames ) > 1) :
-        main( mol_fnames )
+        main( mol_fnames[:128] )
         
