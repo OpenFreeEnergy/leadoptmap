@@ -64,7 +64,9 @@ def match_pair( name1, name2, inputdir = 'molecules_aligned', outputdir = 'mcss'
 
     if mcss and writePairs: #If we get a match:
         #Write out mcss
-        writeMolecule( mcss, os.path.join( outputdir, joint_title+'.mol2'), preserve_atomtypes = True)
+        ostream = oemolostream( os.path.join( outputdir, joint_title+'.mol2'))
+        OEWriteMol2File( ostream, mcss)
+        ostream.close()
 
     if debug: print "Number of matching atoms for MCSS of %s-%s is %s..." % ( mol1.GetTitle(), mol2.GetTitle(), numatoms)
 
@@ -140,7 +142,9 @@ for (idx, title1) in enumerate(titles):
         if mcss: #Only if there is actually a match!
             joint_title = title1 + "_" + title2
             joint_title=joint_title.replace(' ','_')
-            writeMolecule( mcss, os.path.join( 'mcss_unstrict', joint_title+'.mol2'), preserve_atomtypes = True)
+            ostream = oemolostream( os.path.join( 'mcss_unstrict', joint_title+'.mol2'))
+            OEWriteMol2File( ostream, mcss)
+            ostream.close()
 
         #Save number of common atoms
         idx2 = titles.index( title2 )

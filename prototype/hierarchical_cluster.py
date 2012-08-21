@@ -123,7 +123,11 @@ def hier_cluster( input = 'titles_and_mcssscorearray_charges.pickle', output= 'c
     #raw_input()
 
 #######merge clusters
+    ct=0
     while True:
+        ct+=1
+        if ct%1000==0:
+            print "Merging clusters; iteration %s..." % ct
         largest = modified_scores.max()
 
 #################sliu 12/21/11        
@@ -135,8 +139,8 @@ def hier_cluster( input = 'titles_and_mcssscorearray_charges.pickle', output= 'c
             clusternumbers.sort()                                                                       
             clusterkeys.sort()                                                                          
             for i in clusternumbers:                                                                    
-                cluster_size.append ( len(clusters[i]) )                                                
-            cluster_size_in_order = sorted (cluster_size)                                               
+                cluster_size.append ( len(clusters[i]) )                                           
+            cluster_size_in_order = sorted (cluster_size)                                          
             largest_cluster_size = cluster_size_in_order[-1]                         
             break                                                                    
                                                                                      
@@ -149,7 +153,11 @@ def hier_cluster( input = 'titles_and_mcssscorearray_charges.pickle', output= 'c
         randentry = random.randint( 0, len(indices[0])-1 )
         largest = modified_scores[indices[0][ randentry],indices[1][randentry]]
 
+        ct=0
         while clusters_by_molecule[ indices[0][ randentry] ] == clusters_by_molecule[ indices[1][randentry] ]: #If the molecules are in the same cluster, pick different ones
+            ct+=1
+            if ct%1000==0:
+                print "Picking alternate cluster, iteration %s..." % ct
             modified_scores [indices[0][ randentry],indices[1][randentry]] = 0 
             largest = modified_scores.max()
             indices = where( modified_scores == largest )
@@ -216,8 +224,10 @@ def hier_cluster( input = 'titles_and_mcssscorearray_charges.pickle', output= 'c
 
 #merge small clusters with others which is not big
 #get small clusters and not large clusters
-
+    ct=0
     while True:
+        ct+=1
+        if ct%1000==0: print "Getting small clusters, iteration %s..." % ct
         small_clusters_name = []
         small_clusters = {}
         for i in clusternumbers:
