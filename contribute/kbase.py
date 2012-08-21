@@ -13,6 +13,7 @@ class Kbase( object ) :
         self._extra     = {}
 
 
+
     def ask( self, quest, tag = None ) :
         if (tag) :
             try :
