@@ -61,7 +61,7 @@ class Struc( object ) :
         
 
     def __str__( self ) :
-        return title
+        return self.title()
     
 
         
