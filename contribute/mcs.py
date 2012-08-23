@@ -22,7 +22,40 @@ class Mcs( object ) :
         """
         pass
 
+    
 
+    @staticmethod
+    def deposit_to_kbase( id0, id1, atom_match0, atom_match1, mcs_mol ) :
+        """
+        Deposits a MCS substructure and relevant information into the kbase and returns its ID in the C{KBASE}.
+
+        @type         id0: C{str}
+        @param        id0: ID of the first (reference) molecule in the C{KBASE}
+        @type         id1: C{str}
+        @param        id1: ID of the second molecule in the C{KBASE}
+        @type  atom_match: C{list} of C{int}
+        @param atom_match: A list of atom indices of matches atoms in the reference molecule
+        @type     mcs_mol: C{Struc}
+        @param    mcs_mol: C{Struc} object of the MCS substructure        
+        """
+        mol0      = KBASE.ask( id0 )
+        mol1      = KBASE.ask( id1 )
+        name0     = mol0.title()
+        name1     = mol1.title()
+        mcs_title = "mcs@%s..%s" % (name0, name1,)
+        mcs_mol.set_title( mcs_title )
+        mcs_mol.set_id   ( None      )
+        
+        mcs_id = KBASE.deposit( mcs_mol.id(), [mcs_mol,] )
+        if (mcs_mol.id() != mcs_id) :
+            mcs_mol.set_id( mcs_id )
+            KBASE.deposit( mcs_id, [mcs_mol,], should_overwrite = True )
+        
+        KBASE.deposit_extra( mcs_id, "mcs-parents", (id0, id1,)                 )
+        KBASE.deposit_extra( mcs_id, "mcs-matches", (atom_match0, atom_match1,) )
+        return mcs_id
+        
+    
 
     def search( self, mol0, mol1 ) :
         """
@@ -204,37 +237,31 @@ try :
 
             ret = []
             for e in mcs_match :
-                id0       = e.mol0_id
-                id1       = e.mol1_id
-                mol0      = KBASE.ask( id0 )
-                mol1      = KBASE.ask( id1 )
-                name0     = mol0.title()
-                name1     = mol1.title()
-                mcs_title = "mcs@%s..%s" % (name0, name1,)
-                atom_list = [int( i ) for i in e.mcs_atom0.split( ',' )]
-                mcs_mol0  = mol0.extract( atom_list )
+                id0  = e.mol0_id
+                id1  = e.mol1_id
+                mol0 = KBASE.ask( id0 )
+                mol1 = KBASE.ask( id1 )
+
+                atom_match0 = [int( i ) for i in e.mcs_atom0.split( ',' )]
+                atom_match1 = [int( i ) for i in e.mcs_atom1.split( ',' )]
+                mcs_mol0    = mol0.extract( atom_match0 )
+                ret.append( self.deposit_to_kbase( id0, id1, atom_match0, atom_match1, mcs_mol0 ) )
                 
-                mcs_mol0.set_title( mcs_title )
-                mcs_mol0.set_id   ( None      )
-                KBASE.deposit      ( mcs_mol0.id(), [mcs_mol0,]                )
-                KBASE.deposit_extra( mcs_mol0.id(), "mcs-parents", (id0, id1,) )
-                ret.append( mcs_mol0.id() )
-
             return ret
-
-        
-
-    def get_parent_ids( mcs_id ) :
-        """
-        Returns a pair of IDs of the common substructure's parents.
-
-        @type  mcs_id: C{str}
-        @param mcs_id: ID of the common substructure
-        """
-        return KBASE.ask( mcs_id, "mcs-parents" )
         
 except ImportError :
-    pass
+    pass        
+
+
+
+def get_parent_ids( mcs_id ) :
+    """
+    Returns a pair of IDs of the common substructure's parents.
+
+    @type  mcs_id: C{str}
+    @param mcs_id: ID of the common substructure
+    """
+    return KBASE.ask( mcs_id, "mcs-parents" )
 
 
 
