@@ -35,7 +35,7 @@ def main( mol_fnames ) :
         
     mcs_engine = mcs.SchrodMcs( 3 )
     mcs_ids    = mcs_engine.search_all( mols )
-    basic_rule = rule.Mcs( rule.MinimumNumberOfAtom() )
+    basic_rule = rule.Mcs( rule.EqualCharge(), rule.MinimumNumberOfAtom() )
 
     if (DEBUG) :
         for id in mcs_ids :
