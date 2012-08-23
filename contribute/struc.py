@@ -53,7 +53,7 @@ class Struc( object ) :
     """
     def __init__( self ) :
         # Public attributes:
-        self.atom = _AtomContainer( self )
+        self.atom = None
 
         # Private attributes:
         self._id = None
@@ -122,11 +122,69 @@ class Struc( object ) :
 
 
 
+    def is_chiral_atom( self, atom_index ) :
+        """
+        Returns true if the atom indicated by C{atom_index} is chiral; otherwise, false.
+
+        @type  atom_index: C{int}
+        @param atom_index: Atom index
+        """
+        raise NotImplementedError( "`is_chiral_atom' method not implemented by subclass" )
+    
+    
+    
+    def chiral_atoms( self ) :
+        """
+        Returns the indices of the chiral atoms.
+
+        @rtype : C{list} of C{int}
+        @return: A list of atom indices
+        """
+        raise NotImplementedError( "`chiral_atoms' method not implemented by subclass" )
+
+
+
+    def ring_atoms( self ) :
+        """
+        Returns a set of ring atoms.
+
+        @rtype : C{set} of C{int}
+        @return: A set of atom indices
+        """
+        raise NotImplementedError( "`chiral_atoms' method not implemented by subclass" )
+
+
+
+    def bonded_atoms( self, atom_index ) :
+        """
+        Returns a list of atom indices of atoms bonded to the indicated atom.
+        
+        @type  atom_index: C{int}
+        @param atom_index: A single index or a list of indices of the atoms to be deleted
+        
+        @rtype : C{list} of C{int}
+        @return: A list of atom indices of atoms bonded to the indicated atom
+        """
+        raise NotImplementedError( "`bonded_atoms' method not implemented by subclass" )
+
+
+
     def total_charge( self ) :
         """
         Returns the total charge of the structure.
         """
         raise NotImplementedError( "`total_charge' method not implemented by subclass" )
+
+
+
+    def delete_atom( self, atom_index ) :
+        """
+        Deletes a atom.
+
+        @type  atom_index: C{int} or C{list} of C{int}
+        @param atom_index: A single index or a list of indices of the atoms to be deleted
+        """
+        raise NotImplementedError( "`delete_atoms' method not implemented by subclass" )
 
 
 
@@ -206,6 +264,64 @@ try :
 
 
 
+        def is_chiral_atom( self, atom_index ) :
+            """
+            Returns true if the atom indicated by C{atom_index} is chiral; otherwise, false.
+
+            @type  atom_index: C{int}
+            @param atom_index: Atom index
+            """
+            return atom.chirality in ["R", "S", "ANR", "ANS"]
+        
+        
+        
+        def chiral_atoms( self ) :
+            """
+            Returns the indices of the chiral atoms.
+
+            @rtype : C{list} of C{int}
+            @return: A list of atom indices
+            """
+            ret = []
+            for atom in self._struc.atom :
+                if (atom.chirality in ["R", "S", "ANR", "ANS"]) :
+                    ret.append( int( atom ) )
+            return ret
+
+
+
+        def ring_atoms( self ) :
+            """
+            Returns a set of ring atoms.
+
+            @rtype : C{set} of C{int}
+            @return: A set of atom indices
+            """
+            rings = self._struc.find_rings()
+            ret   = []
+            for e in rings :
+                ret.extend( e )
+            return set( ret )
+
+
+
+        def bonded_atoms( self, atom_index ) :
+            """
+            Returns a list of atom indices of atoms bonded to the indicated atom.
+            
+            @type  atom_index: C{int}
+            @param atom_index: A single index or a list of indices of the atoms to be deleted
+            
+            @rtype : C{list} of C{int}
+            @return: A list of atom indices of atoms bonded to the indicated atom
+            """
+            ret = []
+            for e in self._struc.atom[atom_index].bonded_atoms :
+                ret.append( int( e ) )
+            return ret
+        
+                
+        
         def total_charge( self ) :
             """
             Returns the formal charge of the structure
@@ -213,6 +329,19 @@ try :
             return self._struc.formal_charge
 
 
+
+        def delete_atom( self, atom_index ) :
+            """
+            Deletes a atom.
+
+            @type  atom_index: C{int} or C{list} of C{int}
+            @param atom_index: A single index or a list of indices of the atoms to be deleted
+            """
+            if (not isinstance( atom_index, list )) :
+                atom_index = [atom_index,]
+            self._struc.deleteAtoms( atom_index )
+            
+            
         
         def write( self, filename, format = None, mode = "a" ) :
             """
