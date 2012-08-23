@@ -115,24 +115,88 @@ class Cutoff( Rule ) :
 
 
 
+class EqualCharge( Rule ) :
+    """
+    The two molecules must be of the same net charge; otherwise, the similarity score is zero.
+    """
+    def __init__( self, *subrules ) :
+        """
+        """
+        Rule.__init__( self, *subrules )
+
+        
+        
+    def _similarity( self, id0, id1, **kwarg ) :
+        # Retrieves the parent molecules of the MCS.
+        mol0 = KBASE.ask( id0 )
+        mol1 = KBASE.ask( id1 )
+        if (mol0.total_charge() != mol1.total_charge()) :
+            return 0.0
+        return 1.0
+
+
+
 class Mcs( Rule ) :
     """
     MCS-based rule
     Similarity is scored using the C{similarity.by_heavy_atom_count} (see the C{similarity} module).
     """
-    def __init__( self, *subrules ) :
+    def __init__( self, exclude_chiral_atoms = True, *subrules ) :
         Rule.__init__( self, *subrules )
-
+        self._exclude_chiral_atoms = exclude_chiral_atoms
+        
         
 
     def _similarity( self, id0, id1, **kwarg ) :
         # Uses the first common substructure.
-        mcs0 = KBASE.ask( kwarg["mcs_id"] )[0]
+        mcs_id       = kwarg["mcs_id"]
+        mcs0         = KBASE.ask( kwarg["mcs_id"] )[0]
+        ring_atoms   = mcs0.ring_atoms()
+        chiral_atoms = mcs0.chiral_atoms()
+        chiral_atoms.sort( reverse = True )
 
-        # Retrieves the parent molecules of the MCS.
-        mol0 = KBASE.ask( id0 )
-        mol1 = KBASE.ask( id1 )
+        # Deletes partial rings.
+        mol0           = KBASE.ask( id0 )
+        mol1           = KBASE.ask( id1 )
+        match0, match1 = KBASE.ask( mcs_id, "mcs-matches" )
+        ring_atoms0    = mol0.ring_atoms()
+        ring_atoms1    = mol1.ring_atoms()
 
+        match0.sort()
+        match1.sort()
+        nonring_atoms   = set( range( 1, len( mcs0.atom ) + 1 ) ) - ring_atoms
+        nonring_atoms0  = set( [match0[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol0's.
+        nonring_atoms1  = set( [match1[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol1's.
+        nonring_atoms0 &= ring_atoms0                                      # Gets the matched ring atoms in mol0.
+        nonring_atoms1 &= ring_atoms1                                      # Gets the matched ring atoms in mol1.
+        nonring_atoms0  = set( [match0.index( e ) + 1 for e in nonring_atoms0] )     # Maps indices from mol0's to MCS'
+        nonring_atoms1  = set( [match1.index( e ) + 1 for e in nonring_atoms1] )     # Maps indices from mol1's to MCS'
+        nonring_atoms   = list( nonring_atoms0 | nonring_atoms1 )          # Now we get all should-be-deleted atoms in the MCS.
+        mcs0.delete_atom( nonring_atoms )
+        
+        # Deletes chiral atoms.
+        for atom_index in chiral_atoms :
+            if (atom_index in ring_atoms) :
+                bonded_atoms = set( mcs0.bonded_atoms( atom_index ) ) - ring_atoms
+                if (bonded_atoms) :
+                    i = 0
+                    n = 0
+                    for atom in bonded_atoms :
+                        cp = mcs0.copy()
+                        cp.delete_atom( atom )
+                        m = len( cp.atom )
+                        if (m > n) :
+                            i = atom
+                            n = m
+                    mcs0.delete_atom( i )                    
+                else :
+                    print "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),)
+            else :
+                # If the chiral atom is not a ring atom, we simply delete it.
+                mcs0.delete_atom( atom_index )
+
+        KBASE.deposit_extra( mcs_id, "trimmed-mcs", mcs0 )
+        
         return similarity.by_heavy_atom_count( mol0, mol1, mcs0 )
 
 
