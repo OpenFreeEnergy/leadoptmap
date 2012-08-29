@@ -152,8 +152,6 @@ class Mcs( Rule ) :
         mcs_id       = kwarg["mcs_id"]
         mcs0         = KBASE.ask( kwarg["mcs_id"] )[0]
         ring_atoms   = mcs0.ring_atoms()
-        chiral_atoms = mcs0.chiral_atoms()
-        chiral_atoms.sort( reverse = True )
 
         # Deletes partial rings.
         mol0           = KBASE.ask( id0 )
@@ -175,6 +173,8 @@ class Mcs( Rule ) :
         mcs0.delete_atom( nonring_atoms )
         
         # Deletes chiral atoms.
+        chiral_atoms = mcs0.chiral_atoms()
+        chiral_atoms.sort( reverse = True )
         for atom_index in chiral_atoms :
             if (atom_index in ring_atoms) :
                 bonded_atoms = set( mcs0.bonded_atoms( atom_index ) ) - ring_atoms
