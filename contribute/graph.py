@@ -8,6 +8,7 @@ import struc
 import rule
 import mcs
 
+import copy
 import os
 import subprocess
 import hashlib
@@ -139,28 +140,32 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         print "  size of cluster #%02d: %d" % (i, len( c ),)
     
     # Connects the clusters.
-    if (1 < n) :
-        i = 0
-        while (i < n) :
-            j = i + 1
-            while (j < n) :
-                edges = networkx.edge_boundary( complete, clusters[i], clusters[j] )
-                if (len( edges ) == 0) :
-                    print "warning: Cannot connect clusters #%d and #%d." % (i, j,)
-                    print "         If there should be connections, consider to adjust the rules to"
-                    print "         reduce 0-similarity assignments or loosen the MCS conditions."
-                    j += 1
-                    continue
-                edges.sort( lambda x, y : cmp_edge( complete, x, y ) )
-                print "number of boundary edges btw c#%d and c#%d: %d" % (i, j, len( edges ),)
-                for k in range( -1, -num_c2c - 1, -1 ) :
-                    edge  = edges[k]
-                    node0 = edge[0]
-                    node1 = edge[1]
-                    simi  = complete[node0][node1]["similarity"]
-                    desired.add_edge( node0, node1, similarity = simi, boundary = True )
-                    print "  boundary similarity = %f" % simi
-                j += 1
-            i += 1
+    unconnected_clusters = set( range( n ) )
+    while (unconnected_clusters) :
+        c2c_edges      = []
+        cluster_index  = unconnected_clusters.pop()
+        this_cluster   = clusters[cluster_index]
+        other_clusters = copy.copy( clusters )
+        other_clusters.remove( this_cluster )
+        for e in other_clusters :
+            c2c_edges.extend( networkx.edge_boundary( complete, this_cluster, e ) )
+        if (len( c2c_edges ) == 0) :
+            print "warning: Cannot connect cluster #%d with others." % (cluster_index,)
+            print "         If there should be connections, consider to adjust the rules to"
+            print "         reduce 0-similarity assignments or loosen the MCS conditions."
+            continue
+        c2c_edges.sort( lambda x, y : cmp_edge( complete, x, y ) )
+        connected_clusters = set()
+        for k in range( -1, -num_c2c - 1, -1 ) :
+            edge  = c2c_edges[k]
+            node0 = edge[0]
+            node1 = edge[1]
+            simi  = complete[node0][node1]["similarity"]
+            desired.add_edge( node0, node1, similarity = simi, boundary = True )
+            print "  boundary similarity = %f" % simi
+            for e in unconnected_clusters :
+                if (node0 in clusters[e] or node1 in clusters[e]) :
+                    connected_clusters.add( e )
+        unconnected_clusters -= connected_clusters
 
     return desired, clusters
