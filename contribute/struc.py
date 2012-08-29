@@ -224,7 +224,7 @@ try :
             """
             Returns a copy of this structure.
             """
-            return self._struc.copy()
+            return SchrodStruc( self._struc.copy() )
 
 
 
