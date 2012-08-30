@@ -271,7 +271,7 @@ try :
             @type  atom_index: C{int}
             @param atom_index: Atom index
             """
-            return atom.chirality in ["R", "S", "ANR", "ANS"]
+            return self._struc.atom[atom_index].chirality in ["R", "S", "ANR", "ANS"]
         
         
         
@@ -395,6 +395,89 @@ try :
     
 except ImportError, e :
     raise e
+    pass
+
+try:
+    from openeye.oechem import *
+    from mmtools.moltools.ligandtools import *
+
+    class OeStruc( Struc ):
+        """
+        A `Struc' subclass based on Openeye OEMol's infrastructure
+        """
+
+        def __init__( self, struc ):
+
+            Struc.__init__(self)
+            self._struc = struc
+
+            #self.atom = self._struc.GetAtoms()
+            self.atom = []
+            for atom in self._struc.GetAtoms():
+                self.atom.append(atom)
+##3            self.bond
+            #print type(self.atom)
+            #for atom in self.atom:                                                              
+            #    print type(atom)                                                                
+            #for i, e in enumerate( self.atom ):                                                 
+            #    print "First IIIIIIIIIIIIII", i, e                                              
+            #for i, e in enumerate( self.atom ):                                                 
+            #    print "Second IIIIIIIIIIIIIII", i, e                                            
+                                                                                                 
+        def title( self ):                                                                       
+            return self._struc.GetTitle()                                                        
+                                                                                                 
+        def set_title( self, new_title ) :                                                       
+            """                                                                                  
+            Sets a new title to this structure.                                                  
+            """                                                                                  
+            self._struc.SetTitle( new_title )                                                    
+        def heavy_atoms(self):                                                                   
+            """                                                                                  
+            Returns a list of indices of heavy atoms (viz non-hydrogen atoms).                   
+            """                                                                                  
+            ret = []                                                                             
+            for e in self.atom:                                                                  
+                if not e.IsHydrogen():                                                           
+                    ret.append( e.GetIdx() )                                                     
+            return ret                                                                           
+        def total_charge( self ):                                                                
+            return OENetCharge( self._struc )                                                    
+        #do not have this in main struc class                                                    
+        #def atom_num ( self ):                                                                   
+        #    return self._struc.NumAtoms()                                                        
+                                                                                                 
+        def write (self , filename):                                                             
+            return OEWriteMol2File(oemolostream(filename), self._struc  )                        
+                                                                                                 
+    def read_file_oe (filename):                                                                 
+        """                                                                                      
+        Reads a .mol2 file and returns title of molecule , base molecule object and `OEMol' objects.
+        """                                                                                      
+                                                                                                 
+        mol = readMolecule(filename)                                                             
+        title = mol.GetTitle()                                                                   
+        oemol = OEMol( mol )                                                                     
+        return (title ,mol, oemol)                                                               
+                                                                                                 
+    def read_n_files_oe( filenames ) :                                                           
+        """                                                                                      
+        `filenames' is a list of file names. The format of each file will be determined from the file's extension name. Reads
+        the files and deposits them into the `KBASE'. Returns a list of keys.                    
+        """                                                                                      
+        strucid = []                                                                             
+        for fn in filenames :                                                                    
+            strucs = read_file_oe( fn )[-1]                                                      
+            e = OeStruc(strucs)                                                                  
+            id = KBASE.deposit( e.id(), e )                                                      
+            e.set_id( id )                                                                       
+            strucid.append( id )                                                                 
+        return strucid                                                                           
+                                                                                                 
+                                                                                                 
+                                                                                                 
+except ImportError, e :                                                                          
+    raise e                                                                                      
     pass
 
 
