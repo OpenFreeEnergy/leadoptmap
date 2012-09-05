@@ -150,7 +150,7 @@ class Mcs( Rule ) :
     def _similarity( self, id0, id1, **kwarg ) :
         # Uses the first common substructure.
         mcs_id       = kwarg["mcs_id"]
-        mcs0         = KBASE.ask( kwarg["mcs_id"] )[0]
+        mcs0         = KBASE.ask( kwarg["mcs_id"] )[0].copy()
         ring_atoms   = mcs0.ring_atoms()
 
         # Deletes partial rings.
