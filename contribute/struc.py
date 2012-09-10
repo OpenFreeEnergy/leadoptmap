@@ -53,8 +53,10 @@ class Struc( object ) :
     """
     def __init__( self ) :
         self.atom = _AtomContainer( self )
+
         # Private attributes:
         self._id = None
+
 
         
     def _atom( self, index ) :
@@ -62,6 +64,8 @@ class Struc( object ) :
         Returns the `index'-th atom.
         """
         raise NotImplementedError( "`_atom()' method not implemented by subclass" )
+
+
     
     def id( self ) :                                          
         """                                                   
@@ -70,6 +74,8 @@ class Struc( object ) :
         if (self._id is None) :                               
             self._id = hashlib.sha1( self.title() ).hexdigest()
         return self._id
+
+
     
     def set_id( self, id ) :                                  
         """                                                   
@@ -77,11 +83,17 @@ class Struc( object ) :
         """                                                   
         self._id = id
 
+
+
     def title( self ) :
         raise NotImplementedError( "`title()' method not implemented by subclass" )
+
+
     
     def set_title( self, new_title ) :                        
         raise NotImplementedError( "`set_title' method not implemented by subclass" )
+
+
         
     def heavy_atoms( self ) :
         """
@@ -116,44 +128,54 @@ try:
     from openeye.oechem import *
     from mmtools.moltools.ligandtools import *
  
-    class OeStruc( Struc ):
+    class OeStruc( Struc ) :
         """
         A `Struc' subclass based on Openeye OEMol's infrastructure
         """
 
-        def __init__( self, struc ):
+        def __init__( self, struc ) :
             
-            Struc.__init__(self)    
+            Struc.__init__( self )
             self._struc = struc
 
             #self.atom = self._struc.GetAtoms()
             #transfer from iterator type to property 
             self.atom = []
             for atom in self._struc.GetAtoms():
-                self.atom.append(atom) 
+                self.atom.append( atom )
 
-        def copy( self ):
 
-            return OeStruc(self._struc.CreateCopy())
 
-	    def extract(self):
-	        """
+        def copy( self ) :
+            return OeStruc( self._struc.CreateCopy() )
+
+        
+
+        def extract(self) :
+            """
             need to add
-	        """
+            """
+            pass
+        
+            
 
-        def title( self ):
+        def title( self ) :
             """     
             Returns the title of this structure. (Normally title's a user-friendly description)
             """
             return self._struc.GetTitle()
+
         
-        def set_title( self, new_title ) :                    
+        
+        def set_title( self, new_title ) :
             """                                               
-            Sets a new title to this structure.               
-            """                                               
+            Sets a new title to this structure.
+            """
             self._struc.SetTitle( new_title )
 
-        def heavy_atoms(self):
+            
+
+        def heavy_atoms(self) :
             """
             Returns a list of indices of heavy atoms (viz non-hydrogen atoms).
             """
@@ -163,56 +185,59 @@ try:
                     ret.append( e.GetIdx() )
             return ret
 
-        def total_charge( self ):
+        
+
+        def total_charge( self ) :
             """
             Returns net charge of the structure
             """
             return OENetCharge( self._struc )
 
+        
+
         def is_chiral_atom( self, atom_index ) :
             """
             need to add
             """
+            pass
 
-        def chiral_atoms(self):
+        
+
+        def chiral_atoms( self ) :
             """
             Returns the indices of chiral atoms.
             """
             ret = []
-            ret_atoms = []
-            OEPerceiveChiral(self._struc)
-            for e in self._struc.GetAtoms():
-                ret_atoms.append(e)
-            for atom in ret_atoms:
-                if atom.IsChiral():
-                    ret.append( atom.GetIdx() )
+            OEPerceiveChiral( self._struc )
+            for e in self._struc.GetAtoms() :
+                if (e.IsChiral()) :
+                    ret.append( e.GetIdx() )
             return ret
+
+        
 
         def ring_atoms( self ) :
             """
             Returns a set of ring atoms.
             """
             ret = []
-            ret_atoms = []
-            for e in self._struc.GetAtoms():
-                ret_atoms.append(e)
-            for atom in ret_atoms:
-		        if atom.IsInRing():
-		            ret.append( atom.GetIdx() )
-            return set( ret ) 
+            for e in self._struc.GetAtoms() :
+                if (e.IsInRing()) :
+                    ret.append( e.GetIdx() )
+            return set( ret )
+
+
 
         def bonded_atoms( self, atom_index ) :
             """
             Returns a list of atom indices of atoms bonded to the indicated atom. 
             """
             ret = []
-            #get atom object first to avoid interator problem
-            ret_atoms = []
-            for e in self._struc.atom[atom_index].GetAtoms():
-                ret_atoms.append(e)
-            for atom in ret_atoms:
-                ret.append(atom.GetIdx())
+            for e in self._struc.atom[atom_index].GetAtoms() :
+                ret.append( e.GetIdx() )
             return ret
+
+
 
         def delete_atom( self, atom_index ) :
             """
@@ -220,29 +245,33 @@ try:
             """
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
-            ret_atoms = []
-            for (idx, e) in enumerate(self._struc.GetAtoms()):
-                for i in atom_index:
-                    if i == idx:
-                        ret_atoms.append(e)
-            for i in ret_atoms:
-                self._struc.DeleteAtom(i)
+            atoms = []
+            for i, e in enumerate( self._struc.GetAtoms() ) :
+                if i in (atom_index) :
+                    atoms.append( e )
+            for a in atoms :
+                self._struc.DeleteAtom( a )
 
-        def write (self , filename):
+
+
+        def write( self, filename, format, mode = "a" ) :
             """
-            Writes this structure into a mol2 file
+            Writes this structure into a mol2 file.
             """
-            return OEWriteMol2File(oemolostream(filename), self._struc  )
+            return OEWriteMol2File( oemolostream( filename ), self._struc )
+
+        
             
     def read_file_oe (filename):
         """
         Reads a .mol2 file and returns title of molecule , base molecule object and `OEMol' objects.
         """
-
         mol = readMolecule(filename)
         title = mol.GetTitle()
         oemol = OEMol( mol )
         return (title ,mol, oemol)
+
+
 
     def read_n_files_oe( filenames ) :
         """
@@ -256,8 +285,6 @@ try:
             e.set_id( id )                                
             strucid.append( id )
         return strucid        
-        
-
 
 except ImportError, e :
     raise e
