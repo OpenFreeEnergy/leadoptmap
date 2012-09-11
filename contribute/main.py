@@ -16,6 +16,11 @@ import hashlib
 import networkx
 import matplotlib.pyplot as plt
 
+try :
+    import graphviz
+except ImportError :
+    print "WARNING: Graphviz is not installed. Cannot write a .dot output file."
+
 
 
 # Debug switch
@@ -43,10 +48,10 @@ def main( mol_fnames, output ) :
             print "%.3f %s" % (basic_rule.similarity( mol_id[0], mol_id[1], mcs_id = id ), KBASE.ask( id )[0].title(),)
 
     # Gets graph (`g') and clusters (`c').
-    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.1, max_csize = 128, num_c2c = 1 )
+    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.1, max_csize = 64, num_c2c = 1 )
 
     if (DEBUG) :
-        print "%d clusters (counted as the connected components in graph):" % len( c )
+        print "%d clusters (counted as the connected components in the graph):" % len( c )
         c.sort( lambda x, y : len( x ) - len( y ) )
         for i, e in enumerate( c ) :
             print "cluser #%d, %d structures:" % (i, len( e ),)
@@ -80,7 +85,7 @@ def main( mol_fnames, output ) :
                 e.attr["style"] = "dashed"
         ag.write( output + ".dot" )
     except ImportError :
-        pass
+        print "WARNING: Graphviz is not installed. Cannot write a .dot output file."
     
     
 
