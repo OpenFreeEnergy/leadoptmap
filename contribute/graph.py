@@ -43,7 +43,7 @@ def create( mcs_ids, rule ) :
         id0, id1 = mcs.get_parent_ids( id )
         simi = rule.similarity( id0, id1, mcs_id = id )
         if (simi > 0) :
-            g.add_edge( id0, id1, similarity = simi * 0.1 )
+            g.add_edge( id0, id1, similarity = simi )
 
     return g
 
@@ -106,6 +106,8 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     @param     num_c2c: Number of cluster-to-cluster edges
     """
     complete = create( mcs_ids, basic_rule )
+
+    # FIXME: Creates the `desired' from the `complete' instead of from scratch.
     desired  = create( mcs_ids, rule.Cutoff( simi_cutoff, basic_rule ) )
     clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
     largest  = clusters[-1]
@@ -150,7 +152,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         for e in other_clusters :
             c2c_edges.extend( networkx.edge_boundary( complete, this_cluster, e ) )
         if (len( c2c_edges ) == 0) :
-            print "warning: Cannot connect cluster #%d with others." % (cluster_index,)
+            print "WARNING: Cannot connect cluster #%d with others." % (cluster_index,)
             print "         If there should be connections, consider to adjust the rules to"
             print "         reduce 0-similarity assignments or loosen the MCS conditions."
             continue
