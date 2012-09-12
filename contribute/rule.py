@@ -156,12 +156,10 @@ class Mcs( Rule ) :
         # Deletes partial rings.
         mol0           = KBASE.ask( id0 )
         mol1           = KBASE.ask( id1 )
-        match0, match1 = KBASE.ask( mcs_id, "mcs-matches" )
+        match0, match1 = zip( *sorted( zip( *KBASE.ask( mcs_id, "mcs-matches" ) ), cmp = lambda x, y : x[0] - y[0] ) )
         ring_atoms0    = mol0.ring_atoms()
         ring_atoms1    = mol1.ring_atoms()
 
-        match0.sort()
-        match1.sort()
         nonring_atoms   = set( range( 1, len( mcs0.atom ) + 1 ) ) - ring_atoms
         nonring_atoms0  = set( [match0[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol0's.
         nonring_atoms1  = set( [match1[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol1's.
