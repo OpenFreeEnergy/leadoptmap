@@ -174,29 +174,37 @@ except ImportError :
 
 
 try :
+    import schrodinger.structutils.analyze as analyze
+    
     class McsMatch( object ) :
         """
         A class to temporarily store each entry (i.e., row) in Schrodinger's MCS result
         """
-        def __init__( self, mol0_id, mol1_id, mcs_atom0, mcs_atom1 ) :
+        def __init__( self, mol0_id, mol1_id, mcs_smarts0, mcs_smarts1, mcs_atom0, mcs_atom1 ) :
             """
-            @type  mol0_id  : C{str}
-            @param mol0_id  : First structure/molecule's ID
-            @type  mol1_id  : C{str}
-            @param mol1_id  : Second structure/molecule's ID
-            @type  mcs_atom0: C{str}
-            @param mcs_atom0: A list of comma separated integer numbers that are atom indices of the first molecule. If the
-                              first molecule is trimmed such that only the specified atoms are left, you get the maximum
-                              common substructure.
-            @type  mol_name1: C{str}
-            @param mcs_atom1: A list of comma separated integer numbers that are atom indices of the second molecule. If the
-                              second molecule is trimmed such that only the specified atoms are left, you get the maximum
-                              common substructure.
+            @type  mol0_id    : C{str}
+            @param mol0_id    : First structure/molecule's ID
+            @type  mol1_id    : C{str}
+            @param mol1_id    : Second structure/molecule's ID
+            @type  mcs_smarts0: C{str}
+            @param mcs_smarts0: SMARTS on the first molecule
+            @type  mcs_smarts1: C{str}
+            @param mcs_smarts1: SMARTS on the second molecule
+            @type  mcs_atom0  : C{str}
+            @param mcs_atom0  : A list of comma separated integer numbers that are atom indices of the first molecule. If the
+                                first molecule is trimmed such that only the specified atoms are left, you get the maximum
+                                common substructure.
+            @type  mcs_atom1  : C{str}
+            @param mcs_atom1  : A list of comma separated integer numbers that are atom indices of the second molecule. If the
+                                second molecule is trimmed such that only the specified atoms are left, you get the maximum
+                                common substructure.
             """
-            self.mol0_id   = mol0_id
-            self.mol1_id   = mol1_id
-            self.mcs_atom0 = mcs_atom0
-            self.mcs_atom1 = mcs_atom1
+            self.mol0_id     = mol0_id
+            self.mol1_id     = mol1_id
+            self.mcs_smarts0 = mcs_smarts0
+            self.mcs_smarts1 = mcs_smarts1
+            self.mcs_atom0   = mcs_atom0
+            self.mcs_atom1   = mcs_atom1
 
             
             
@@ -253,6 +261,7 @@ try :
                             "-imae",     mae_fname,
                             "-opw",      out_fname,
                             "-atomtype", str( self._typing ),
+                            #"-nobreakring",
                             ]
             mcs_proc     = subprocess.Popen( cmd, stderr = subprocess.STDOUT, stdout = log_fh )
             null, stderr = mcs_proc.communicate()
@@ -274,18 +283,29 @@ try :
                 lines     = fh.readlines()[1:]
                 mcs_match = []
                 for tokens in csv.reader( lines ) :
-                    mcs_match.append( McsMatch( tokens[1], tokens[3], tokens[9], tokens[12] ) )
+                    mcs_match.append( McsMatch( tokens[1], tokens[3], tokens[11],  tokens[14], tokens[9], tokens[12] ) )
 
             ret = []
-            for e in mcs_match :
-                id0  = e.mol0_id
-                id1  = e.mol1_id
+            for m in mcs_match :
+                id0  = m.mol0_id
+                id1  = m.mol1_id
                 mol0 = KBASE.ask( id0 )
                 mol1 = KBASE.ask( id1 )
 
-                atom_match0 = [int( i ) for i in e.mcs_atom0.split( ',' )]
-                atom_match1 = [int( i ) for i in e.mcs_atom1.split( ',' )]
+                atom_match0 = set( [int( i ) for i in m.mcs_atom0.split( ',' )] )
+                atom_match1 = set( [int( i ) for i in m.mcs_atom1.split( ',' )] )
                 mcs_mol0    = mol0.extract( atom_match0 )
+
+                for e in analyze.evaluate_smarts_canvas( mol0._struc, m.mcs_smarts0 ) :
+                    if (atom_match0 == set( e )) :
+                        atom_match0 = e
+                        break
+
+                for e in analyze.evaluate_smarts_canvas( mol1._struc, m.mcs_smarts1 ) :
+                    if (atom_match1 == set( e )) :
+                        atom_match1 = e
+                        break
+                    
                 ret.append( self.deposit_to_kbase( id0, id1, atom_match0, atom_match1, mcs_mol0 ) )
                 
             return ret
