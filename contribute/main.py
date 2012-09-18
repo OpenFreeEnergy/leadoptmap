@@ -28,17 +28,18 @@ DEBUG = False
 
 
 
-def main( mol_fnames, output ) :
+def main( molid_list, opt ) :
     """
-    @type  mol_fnames: C{list} of C{str}'s
-    @param mol_fnames: A list of structure file names
+    @type  molid_list: C{list} of C{str}'s
+    @param molid_list: A list of molecule IDs in the C{KBASE}
     """
-    id_list = struc.read_n_files( mol_fnames )
-    mols    = []
-    for id in id_list :
+    mols = []
+    for id in molid_list :
         mols.append( KBASE.ask( id ) )
-        
-    mcs_engine = mcs.SchrodMcs( 3 )
+
+    if   (struc.infrastructure == "schrodinger") : mcs_engine = mcs.SchrodMcs( 3 )
+    elif (struc.infrastructure == "oechem"     ) : mcs_engine = mcs.OeMcs()
+    
     mcs_ids    = mcs_engine.search_all( mols )
     basic_rule = rule.Mcs( rule.EqualCharge(), rule.MinimumNumberOfAtom() )
 
@@ -62,7 +63,7 @@ def main( mol_fnames, output ) :
  
     l = networkx.spring_layout( g, iterations = 256, weight = "similarity", scale = 10 )
     networkx.draw_networkx( g, pos = l, with_labels = False )
-    plt.savefig( output + ".png" )
+    plt.savefig( opt.output + ".png" )
 
     try :
         import graphviz
@@ -83,39 +84,81 @@ def main( mol_fnames, output ) :
             e.attr["weight"] = saturation
             if (saturation < 0.01) :
                 e.attr["style"] = "dashed"
-        ag.write( output + ".dot" )
+        ag.write( opt.output + ".dot" )
     except ImportError :
         print "WARNING: Graphviz is not installed. Cannot write a .dot output file."
+
+
+    edges = g.edges( data = True )
+    print "%d edges in total" % len( edges )
     
-    
+    if (opt.siminp) :
+        if (opt.siminp_type == "gro") :
+            raise NotImplementedError( "Support for writing Gromacs input files is not yet implemented." )
+        if (opt.siminp_type == "mae") :
+            import schrodinger.application.desmond.fep_mapping as dfm
+
+            tmp_mae_fname = "__temp_file_ok_to_delete_after_running__.mae"
+            for id0, id1, attr in edges :
+                print id0[:7], id1[:7], attr['similarity']
+                mol0 = KBASE.ask( id0 )
+                mol1 = KBASE.ask( id1 )
+                print mol0, mol1
+                mol0._struc.property["s_fep_fragname"] = "none"
+                mol1._struc.property["s_fep_fragname"] = "%s:%s" % (mol0.title(), mol1.title(),)
+                mol0.write( tmp_mae_fname, mode = "w" )
+                mol1.write( tmp_mae_fname, mode = "a" )
+                try :
+                    data = dfm.get_atom_mapping_data( tmp_mae_fname, atomtype = 3 )
+                    dfm.write_fepsubst_to_file( data, "%s_%s_%s.mae" % (opt.siminp, id0[:7], id1[:7],) )
+                except (RuntimeError, NameError,) :
+                    print "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,)
+
+
 
 if ("__main__" == __name__) :
     from optparse import OptionParser
 
-    parser = OptionParser( usage = "Usage: %prog [options] <structure-file dir>", version = "%prog v0.2" )
+    parser = OptionParser( usage = "Usage: %prog [options] <structure-file-dir | structure-file>...", version = "%prog v0.2" )
     parser.add_option( "-o", "--output", metavar = "BASENAME", default = "simimap",
                        help = "output files' base name (two files will be written: <basename>.png and <basename>.dot)" )
+    parser.add_option( "-s", "--siminp", metavar = "BASENAME",
+                       help = "simulation input files' base name" )
+    parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
+                       help = "simulation input file type [mae | gro]" )
 
     (opt, args) = parser.parse_args()
 
-    try :
-        dir = args[0]
-    except IndexError :
+    if (len( args ) == 0) :
         parser.print_help()
         sys.exit( 0 )
 
-    n          = 0
-    mol_fnames = glob.glob( dir + "/*.mol2" )
-    print "Structure files:"
-    for fname in mol_fnames :
-        if (n < 16) :
-            print os.path.basename( fname )
-        elif (n == 16) :
-            print "(more)..."
-            break
-        n += 1
+    molid_list = []
+    for a in args :
+        print "Reading structures from '%s'..." % a
+        if (os.path.isfile( a )) :
+            try :
+                molid_list.extend( struc.read_n_files( [a,] ) )
+            except :
+                print "  Cannot read '%s', skip it." % a
+        else :
+            print "  It is a directory, reading *.mol2 and *.mae files in there..."
+            n          = 0
+            mol_fnames = glob.glob( a + "/*.mol2" ) + glob.glob( a + "/*.mae" )
+            for fname in mol_fnames :
+                if (n < 8) :
+                    print "    %s" % os.path.basename( fname )
+                elif (n == 8) :
+                    print "    (more)..."
+                    break
+                n += 1
+            print "    %d files found." % len( mol_fnames )
+            if (len( mol_fnames ) > 1) :
+                print "    Reading them..."
+                molid_list.extend( struc.read_n_files( mol_fnames ) )
+                print "      Done."
     print "--------------------------------------------"
-    print "%d files in total" % len( mol_fnames )
-    if (len( mol_fnames ) > 1) :
-        main( mol_fnames, output = opt.output )
+    print "Finish reading structure input files. %d structures in total" % len( molid_list )
+    if (len( molid_list ) > 1) :
+        main( molid_list, opt )
         
