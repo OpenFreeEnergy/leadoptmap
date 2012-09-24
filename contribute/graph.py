@@ -164,10 +164,24 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
             node1 = edge[1]
             simi  = complete[node0][node1]["similarity"]
             desired.add_edge( node0, node1, similarity = simi, boundary = True )
-            print "  boundary similarity = %f" % simi
+            print "boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),)
             for e in unconnected_clusters :
                 if (node0 in clusters[e] or node1 in clusters[e]) :
                     connected_clusters.add( e )
         unconnected_clusters -= connected_clusters
 
     return desired, clusters
+
+
+
+def annotate_nodes_with_smarts( g ) :
+    """
+
+    """
+    for molid in g.nodes() :
+        try :
+            smarts = KBASE.ask( molid, "SMARTS" )
+        except LookupError :
+            smarts = KBASE.ask( molid ).smarts()
+            KBASE.deposit_extra( molid, "SMARTS", smarts )
+        g.node[molid]["SMART"] = smarts
