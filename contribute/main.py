@@ -123,7 +123,8 @@ if ("__main__" == __name__) :
     parser.add_option( "-o", "--output", metavar = "BASENAME", default = "simimap",
                        help = "output files' base name (two files will be written: <basename>.png and <basename>.dot)" )
     parser.add_option( "-s", "--siminp", metavar = "BASENAME",
-                       help = "simulation input files' base name" )
+                       help = "simulation input files' base name. When this option is specified, a number of input files "
+                       "for FEP simulations will be written out." )
     parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
                        help = "simulation input file type [mae | gro]" )
 
