@@ -193,6 +193,14 @@ class Struc( object ) :
 
 
 
+    def smarts( self ) :
+        """
+        Returns a SMARTS string of this structure.
+        """
+        raise NotImplementedError( "`smarts' method not implemented by subclass" )
+
+        
+
     def write( filename, format, mode = "a" ) :
         """
         Writes this structure into a file in the designated format.
@@ -345,6 +353,16 @@ try :
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
             self._struc.deleteAtoms( atom_index )
+            
+
+
+        def smarts( self ) :
+            """
+            Returns a SMARTS string for this structure.
+            """
+            import schrodinger.structutils.analyze as analyze
+
+            return analyze.generate_smarts( self._struc )
             
             
         
