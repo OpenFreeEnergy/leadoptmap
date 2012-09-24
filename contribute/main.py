@@ -15,6 +15,7 @@ import sys
 import hashlib
 import networkx
 import matplotlib.pyplot as plt
+import pickle
 
 try :
     import graphviz
@@ -50,7 +51,8 @@ def main( molid_list, opt ) :
 
     # Gets graph (`g') and clusters (`c').
     g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.1, max_csize = 64, num_c2c = 1 )
-
+    graph.annotate_nodes_with_smarts( g )
+    
     if (DEBUG) :
         print "%d clusters (counted as the connected components in the graph):" % len( c )
         c.sort( lambda x, y : len( x ) - len( y ) )
@@ -65,6 +67,11 @@ def main( molid_list, opt ) :
     networkx.draw_networkx( g, pos = l, with_labels = False )
     plt.savefig( opt.output + ".png" )
 
+    pkl_fname = opt.output + ".pkl"
+    pkl_fh    = open( pkl_fname, "w" )
+    pickle.dump( g, pkl_fh )
+    pkl_fh.close()
+    
     try :
         import graphviz
         
@@ -121,7 +128,8 @@ if ("__main__" == __name__) :
 
     parser = OptionParser( usage = "Usage: %prog [options] <structure-file-dir | structure-file>...", version = "%prog v0.2" )
     parser.add_option( "-o", "--output", metavar = "BASENAME", default = "simimap",
-                       help = "output files' base name (two files will be written: <basename>.png and <basename>.dot)" )
+                       help = "output files' base name. The following files will be written: <basename>.png, <basename>.pkl, "
+                       "and <basename>.dot." )
     parser.add_option( "-s", "--siminp", metavar = "BASENAME",
                        help = "simulation input files' base name. When this option is specified, a number of input files "
                        "for FEP simulations will be written out." )
