@@ -39,6 +39,11 @@ if __name__ == '__main__':
 
     input_pickle = arg[0]
     output_fname = arg[1]
+    format = guess_format(output_fname)
+    if options.format == 'svg' and format == 'svg' and not options.save:
+        print "WARNING:the output svg file depends on intermediate svg files, please use -s option."
+        sys.exit(0)
+
     G = nx.read_gpickle(input_pickle)
     D = nx.to_pydot(G)
     
@@ -60,7 +65,7 @@ if __name__ == '__main__':
         if options.text:
             pass
         else:
-            img_fname = '%s/%s.svg'%(curr_dir,name)
+            img_fname = '%s/%s.%s'%(curr_dir,name,options.format)
             img_generator.generate(smiles, img_fname)
             img_list.append(img_fname)
             node.set('image', img_fname)        
@@ -69,8 +74,7 @@ if __name__ == '__main__':
         
 
         
-    print "rending..."
-    format = guess_format(output_fname)
+    print "rendering..."
     if not format:
         print "unrecognized output format"
         sys.exit(1)
