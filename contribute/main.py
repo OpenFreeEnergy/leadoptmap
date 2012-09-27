@@ -122,6 +122,10 @@ def main( molid_list, opt ) :
                 # except (RuntimeError, NameError,) :
                 #     print "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,)
 
+    tmp_fnames = glob.glob( "__temp_file_ok_to_delete_after_running__.*" )
+    for fname in tmp_fnames :
+        os.remove( fname )
+        
 
 
 def startup() :
