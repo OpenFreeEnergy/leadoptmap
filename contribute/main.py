@@ -124,7 +124,10 @@ def main( molid_list, opt ) :
 
 
 
-if ("__main__" == __name__) :
+def startup() :
+    """
+    The startup function, which will handle the command line interface and call the `main' function.
+    """
     from optparse import OptionParser
 
     parser = OptionParser( usage = "Usage: %prog [options] <structure-file-dir | structure-file>...", version = "%prog v0.2" )
@@ -171,4 +174,8 @@ if ("__main__" == __name__) :
     print "Finish reading structure input files. %d structures in total" % len( molid_list )
     if (len( molid_list ) > 1) :
         main( molid_list, opt )
+
+
         
+if ("__main__" == __name__) :
+    startup()
