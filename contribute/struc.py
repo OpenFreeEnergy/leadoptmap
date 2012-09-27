@@ -199,6 +199,14 @@ class Struc( object ) :
         """
         raise NotImplementedError( "`smarts' method not implemented by subclass" )
 
+
+
+    def smiles( self ) :
+        """
+        Returns a SMILES string of this structure.
+        """
+        raise NotImplementedError( "`smiles' method not implemented by subclass" )
+
         
 
     def write( filename, format, mode = "a" ) :
@@ -363,6 +371,16 @@ try :
             import schrodinger.structutils.analyze as analyze
 
             return analyze.generate_smarts( self._struc )
+
+
+            
+        def smiles( self ) :
+            """
+            Returns a SMILES string for this structure.
+            """
+            import schrodinger.structutils.analyze as analyze
+
+            return analyze.generate_smiles( self._struc )
             
             
         
