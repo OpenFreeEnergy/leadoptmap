@@ -174,14 +174,14 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
 
 
 
-def annotate_nodes_with_smarts( g ) :
+def annotate_nodes_with_smiles( g ) :
     """
 
     """
     for molid in g.nodes() :
         try :
-            smarts = KBASE.ask( molid, "SMARTS" )
+            smiles = KBASE.ask( molid, "SMILES" )
         except LookupError :
-            smarts = KBASE.ask( molid ).smarts()
-            KBASE.deposit_extra( molid, "SMARTS", smarts )
-        g.node[molid]["SMART"] = smarts
+            smiles = KBASE.ask( molid ).smiles()
+            KBASE.deposit_extra( molid, "SMILES", smiles )
+        g.node[molid]["SMILES"] = smiles

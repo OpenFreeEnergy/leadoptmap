@@ -51,7 +51,7 @@ def main( molid_list, opt ) :
 
     # Gets graph (`g') and clusters (`c').
     g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.1, max_csize = 64, num_c2c = 1 )
-    graph.annotate_nodes_with_smarts( g )
+    graph.annotate_nodes_with_smiles( g )
     
     if (DEBUG) :
         print "%d clusters (counted as the connected components in the graph):" % len( c )
@@ -107,19 +107,20 @@ def main( molid_list, opt ) :
 
             tmp_mae_fname = "__temp_file_ok_to_delete_after_running__.mae"
             for id0, id1, attr in edges :
-                print id0[:7], id1[:7], attr['similarity']
-                mol0 = KBASE.ask( id0 )
-                mol1 = KBASE.ask( id1 )
-                print mol0, mol1
-                mol0._struc.property["s_fep_fragname"] = "none"
-                mol1._struc.property["s_fep_fragname"] = "%s:%s" % (mol0.title(), mol1.title(),)
-                mol0.write( tmp_mae_fname, mode = "w" )
-                mol1.write( tmp_mae_fname, mode = "a" )
-                try :
-                    data = dfm.get_atom_mapping_data( tmp_mae_fname, atomtype = 3 )
-                    dfm.write_fepsubst_to_file( data, "%s_%s_%s.mae" % (opt.siminp, id0[:7], id1[:7],) )
-                except (RuntimeError, NameError,) :
-                    print "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,)
+                mol0      = KBASE.ask( id0 )
+                mol1      = KBASE.ask( id1 )
+                out_fname = "%s_%s_%s.mae" % (opt.siminp, id0[:7], id1[:7],)
+                mol0._struc.property["s_fepmap_fragname"] = "none"
+                mol1._struc.property["s_fepmap_fragname"] = "%s:%s" % (mol0.title(), mol1.title(),)
+                mol0.write( out_fname, mode = "w" )
+                mol1.write( out_fname, mode = "a" )
+                # mol0.write( tmp_mae_fname, mode = "w" )
+                # mol1.write( tmp_mae_fname, mode = "a" )
+                # try :
+                #     data = dfm.get_atom_mapping_data( tmp_mae_fname, atomtype = 3 )
+                #     dfm.write_fepsubst_to_file( data, "%s_%s_%s.mae" % (opt.siminp, id0[:7], id1[:7],) )
+                # except (RuntimeError, NameError,) :
+                #     print "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,)
 
 
 
