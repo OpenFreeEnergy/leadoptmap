@@ -43,7 +43,8 @@ def create( mcs_ids, rule ) :
         id0, id1 = mcs.get_parent_ids( id )
         simi = rule.similarity( id0, id1, mcs_id = id )
         if (simi > 0) :
-            g.add_edge( id0, id1, similarity = simi )
+            partial_ring = int( KBASE.ask( id, "partial_ring" ) )
+            g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring )
 
     return g
 
@@ -121,7 +122,6 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         pretrial = 0
         while (abs( trial - pretrial ) > 1E5) :
             n = len( largest )
-            print n
             if (max_csize < n) :
                 trial = 0.5 * (high + mid)
             elif (int( max_csize * 0.95 ) > n) :

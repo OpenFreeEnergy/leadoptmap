@@ -85,11 +85,15 @@ def main( molid_list, opt ) :
         simi  = [float( e.attr["similarity"] ) for e in ag.edges()]
         scale = 1.0 / max( simi )
         for e in ag.edges_iter() :
-            saturation = float( e.attr["similarity"] ) * scale
-            saturation = 0.0 if (saturation < 0) else (1.0 if (saturation > 1) else saturation)
+            try :
+                partial_ring = int( e.attr["partial_ring"] )
+            except ValueError :
+                partial_ring = 0
+            saturation       = float( e.attr["similarity"] ) * scale
+            saturation       = 0.0 if (saturation < 0) else (1.0 if (saturation > 1) else saturation)
             e.attr["color" ] = "0.8396,%f,0.8" % saturation
             e.attr["weight"] = saturation
-            if (saturation < 0.01) :
+            if (saturation < 0.01 or partial_ring) :
                 e.attr["style"] = "dashed"
         ag.write( opt.output + ".dot" )
     except ImportError :

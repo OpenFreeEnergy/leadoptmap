@@ -154,11 +154,11 @@ class Mcs( Rule ) :
         ring_atoms   = mcs0.ring_atoms()
 
         # Deletes partial rings.
-        mol0           = KBASE.ask( id0 )
-        mol1           = KBASE.ask( id1 )
-        match0, match1 = zip( *sorted( zip( *KBASE.ask( mcs_id, "mcs-matches" ) ), cmp = lambda x, y : x[0] - y[0] ) )
-        ring_atoms0    = mol0.ring_atoms()
-        ring_atoms1    = mol1.ring_atoms()
+        mol0            = KBASE.ask( id0 )
+        mol1            = KBASE.ask( id1 )
+        match0, match1  = zip( *sorted( zip( *KBASE.ask( mcs_id, "mcs-matches" ) ), cmp = lambda x, y : x[0] - y[0] ) )
+        ring_atoms0     = mol0.ring_atoms()
+        ring_atoms1     = mol1.ring_atoms()
 
         nonring_atoms   = set( range( 1, len( mcs0.atom ) + 1 ) ) - ring_atoms
         nonring_atoms0  = set( [match0[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol0's.
@@ -169,7 +169,7 @@ class Mcs( Rule ) :
         nonring_atoms1  = set( [match1.index( e ) + 1 for e in nonring_atoms1] )     # Maps indices from mol1's to MCS'
         nonring_atoms   = list( nonring_atoms0 | nonring_atoms1 )          # Now we get all should-be-deleted atoms in the MCS.
         mcs0.delete_atom( nonring_atoms )
-        
+
         # Deletes chiral atoms.
         chiral_atoms = mcs0.chiral_atoms()
         chiral_atoms.sort( reverse = True )
@@ -193,8 +193,9 @@ class Mcs( Rule ) :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )
 
-        KBASE.deposit_extra( mcs_id, "trimmed-mcs", mcs0 )
-        
+        KBASE.deposit_extra( mcs_id, "trimmed-mcs",  mcs0                 )
+        KBASE.deposit_extra( mcs_id, "partial_ring", len( nonring_atoms ) )
+
         return similarity.by_heavy_atom_count( mol0, mol1, mcs0 )
 
 
