@@ -87,9 +87,7 @@ try :
     import openeye.oechem as oechem
 
     class OeMcs( Mcs ) :
-        def __init__( self, atom_expr = oechem.OEExprOpts_EqONS,
-                      bond_expr = oechem.OEExprOpts_BondOrder|oechem.OEExprOpts_EqSingleDouble|oechem.OEExprOpts_EqAromatic,
-                      ringchecking = 'Strict', min_num_atoms = 4, is_approximate = True ) :
+        def __init__( self, atom_expr = oechem.OEExprOpts_IntType, bond_expr = 0, ringchecking = 'Strict', min_num_atoms = 4, is_approximate = True ) :
             """
             (To be implemented)
             """
@@ -112,17 +110,20 @@ try :
             for mol in (mol0, mol1,) :
                 for atom in mol.GetAtoms() :
                     if (atom.IsHydrogen()) :
-                        mol.DeleteAtom( atom )
-                        
+                        atom.SetIntType(1)
+                    else:
+                        atom.SetIntType(2)
+            oechem.OESuppressHydrogens(mol0)              
+            oechem.OESuppressHydrogens(mol1)     
             if (self._is_approximate) :
-                mcss = oechem.OEMCSSearch( mol1, self._atom_expr, self._bond_expr, OEMCSType_Approximate )
+                mcss = oechem.OEMCSSearch( mol1, self._atom_expr, self._bond_expr, oechem.OEMCSType_Approximate )
             else:
                 mcss = oechem.OEMCSSearch( mol1, self._atom_expr, self._bond_expr )
 
             # Shall we just use 1 as the mininum number of common atoms here?
             # We can later deal with the requirement of different minimum number of common atoms.
             mcss.SetMinAtoms( 1 )
-            mcss.SetMCSFunc( oechem.OEMCSMaxAtomsCompleteCycles() )
+            mcss.SetMCSFunc( oechem.OEMCSMaxAtomsCompleteCycles(1.5) )
 
             # There could be multiple matches. We select the one with the maximum number of atoms.
             # If there are more than 1 matches with the same maximum number of atoms, we arbitrarily select the first one.
@@ -133,6 +134,7 @@ try :
                 num_atom = 0
                 mcs_tmp  = oechem.OEMol()
                 oechem.OESubsetMol( mcs_tmp, match, True )
+                oechem.OEFindRingAtomsAndBonds(mcs_tmp)
                 for atom in mcs_tmp.GetAtoms() :
                     if (not atom.IsHydrogen()) :
                         num_atom += 1
@@ -143,8 +145,8 @@ try :
                     atom_match0 = []
                     atom_match1 = []
                     for matchpair in match.GetAtoms() :
-                        atom_match1.append( matchpair.target .GetIdx() )
-                        atom_match0.append( matchpair.pattern.GetIdx() )
+                        atom_match1.append( matchpair.target .GetIdx()+1 )
+                        atom_match0.append( matchpair.pattern.GetIdx()+1 )
                     
             if (mcs_mol) :
                 mol0    = OeStruc( mol0 )

@@ -442,9 +442,8 @@ except ImportError, e :
 
 
 try:
-    from openeye.oechem import *
-    from mmtools.moltools.ligandtools import *
- 
+    
+    import openeye.oechem as oechem 
     class OeStruc( Struc ) :
         """
         A `Struc' subclass based on Openeye OEMol's infrastructure
@@ -455,12 +454,13 @@ try:
             Struc.__init__( self )
             self._struc = struc
 
-            #self.atom = self._struc.GetAtoms()
-            #transfer from iterator type to property 
-            self.atom = []
+            self.atom = {}
             for atom in self._struc.GetAtoms():
-                self.atom.append( atom )
-
+                oe_idx = atom.GetIdx() + 1
+                if self.atom.has_key(oe_idx):
+                    print "Struc has duplicate atom index : %s need to check"%(oe_idx)
+                else:
+                    self.atom[oe_idx] = atom
 
 
         def copy( self ) :
@@ -469,10 +469,16 @@ try:
         
 
         def extract(self) :
-            """
-            need to add
-            """
-            pass
+            """                                               
+            Return a new structure object which contains the atoms of the current structure that appear in the specified list.
+            """                                               
+            new_mol = self._struc.copy()
+            for atom in new_mol.GetAtoms():                   
+                oe_idx = atom.GetIdx() + 1                    
+                if oe_idx not in indices:                     
+                    new_mol.DeleteAtom(atom)                  
+            return OeStruc(new_mol)
+
         
             
 
@@ -496,12 +502,13 @@ try:
             """
             Returns a list of indices of heavy atoms (viz non-hydrogen atoms).
             """
-            ret = []
-            for e in self.atom:
-                if not e.IsHydrogen():
-                    ret.append( e.GetIdx() )
-            return ret
 
+            ret = []                                          
+            for e in self.atom.values():                      
+                if not e.IsHydrogen():                        
+                    oe_idx = e.GetIdx() + 1
+                    ret.append( oe_idx )                      
+            return ret
         
 
         def total_charge( self ) :
@@ -513,47 +520,56 @@ try:
         
 
         def is_chiral_atom( self, atom_index ) :
-            """
-            need to add
-            """
-            pass
-
+            """                                               
+            Returns true if the atom indicated by C{atom_index} is chiral; otherwise, false.
+            """                                               
+            return self.atom[atom_index].IsChiral()
         
 
         def chiral_atoms( self ) :
             """
             Returns the indices of chiral atoms.
             """
-            ret = []
-            OEPerceiveChiral( self._struc )
-            for e in self._struc.GetAtoms() :
-                if (e.IsChiral()) :
-                    ret.append( e.GetIdx() )
+            ret = []                                          
+            ret_atoms = []                                    
+            oechem.OEPerceiveChiral(self._struc)              
+            for e in self._struc.GetAtoms():                  
+                ret_atoms.append(e)                           
+            for atom in ret_atoms:                            
+                if atom.IsChiral():                           
+                    oe_idx = atom.GetIdx() + 1                
+                    ret.append( oe_idx )                      
             return ret
-
         
 
         def ring_atoms( self ) :
             """
             Returns a set of ring atoms.
             """
-            ret = []
-            for e in self._struc.GetAtoms() :
-                if (e.IsInRing()) :
-                    ret.append( e.GetIdx() )
+            ret = []                                          
+            ret_atoms = []                                    
+            for e in self._struc.GetAtoms():                  
+                ret_atoms.append(e)                           
+            for atom in ret_atoms:                            
+                if atom.IsInRing():                           
+                    oe_idx = atom.GetIdx() + 1
+                    ret.append( oe_idx )                      
             return set( ret )
-
 
 
         def bonded_atoms( self, atom_index ) :
             """
             Returns a list of atom indices of atoms bonded to the indicated atom. 
             """
-            ret = []
-            for e in self._struc.atom[atom_index].GetAtoms() :
-                ret.append( e.GetIdx() )
+            ret = []                                          
+            #get atom object first to avoid interator problem 
+            ret_atoms = []                                    
+            for e in self.atom[atom_index].GetAtoms():        
+                ret_atoms.append(e)                           
+            for atom in ret_atoms:                            
+                oe_idx = atom.GetIdx() + 1                    
+                ret.append(atom.GetIdx())                     
             return ret
-
 
 
         def delete_atom( self, atom_index ) :
@@ -562,32 +578,60 @@ try:
             """
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
-            atoms = []
-            for i, e in enumerate( self._struc.GetAtoms() ) :
-                if i in (atom_index) :
-                    atoms.append( e )
-            for a in atoms :
-                self._struc.DeleteAtom( a )
+            ret_atoms = []
+            for (idx, e) in enumerate(self._struc.GetAtoms()):
+                oe_idx = idx + 1
+                for i in atom_index:
+                    if i == oe_idx:
+                        ret_atoms.append(e)
+
+            for j in ret_atoms:                               
+                self._struc.DeleteAtom(j)                     
+                self.atom = {}                                
+                for atom in self._struc.GetAtoms():           
+                    oe_idx = atom.GetIdx() + 1                
+                    if self.atom.has_key(oe_idx):
+                        print "Struc has duplicate atom index :i %s need to check"%oe_idx                                                     
+                    else:                                     
+                        self.atom[oe_idx] = atom
 
 
-
-        def write( self, filename, format, mode = "a" ) :
-            """
-            Writes this structure into a mol2 file.
-            """
-            return OEWriteMol2File( oemolostream( filename ), self._struc )
-
+        def write (self , filename, format = "mol2", mode = "w"):
+            #print "Struc check write format", oechem.oemolostream(filename)
+            if mode == "a":                                   
+                raise ValueError("OeStruc write doesn't support append method")
+            elif mode == "w":                                 
+                if format == "pdb":                           
+                    ofs = oechem.oemolostream(filename + '.pdb')
+                    ofs.SetFormat(oechem.OEFormat_PDB)        
+                elif format == "mol2":                        
+                    ofs = oechem.oemolostream(filename + '.mol2')
+                    ofs.SetFormat(oechem.OEFormat_MOL2)       
+                elif format == "xyz":                         
+                    ofs = oechem.oemolostream(filename + '.xyz')
+                    ofs.SetFormat(oechem.OEFormat_XYZ)        
+            else:                                             
+                raise ValueError( "Invalid value for `mode' argument: '%s', should be one of 'a' and 'w'.")
+            #format = OEFormat_MOL2                           
+            #ofs.SetFormat(OEFormat_MOL2)                     
+            #return oechem.OEWriteMol2File(ofs, self._struc  )
+            return oechem.OEWriteMolecule(ofs, self._struc  )
         
             
     def read_file_oe (filename):
         """
         Reads a .mol2 file and returns title of molecule , base molecule object and `OEMol' objects.
         """
-        mol = readMolecule(filename)
-        title = mol.GetTitle()
-        oemol = OEMol( mol )
-        return (title ,mol, oemol)
+        istream = oechem.oemolistream()
+        istream.open(filename)
 
+        molecule = oechem.OEMol()
+
+        oechem.OEReadMolecule(istream, molecule)
+
+        istream.close()                                       
+                                                              
+        return molecule
 
 
     def read_n_files_oe( filenames ) :
@@ -596,7 +640,7 @@ try:
         """                                                   
         strucid = []                                          
         for fn in filenames :                                 
-            strucs = read_file_oe( fn )[-1]                          
+            strucs = read_file_oe( fn )                         
             e = OeStruc(strucs)                                
             id = KBASE.deposit( e.id(), e )               
             e.set_id( id )                                
