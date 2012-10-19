@@ -44,7 +44,7 @@ def create( mcs_ids, rule ) :
         simi = rule.similarity( id0, id1, mcs_id = id )
         if (simi > 0) :
             partial_ring = int( KBASE.ask( id, "partial_ring" ) )
-            g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring )
+            g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring, mcs_id = id )
 
     return g
 
@@ -159,11 +159,12 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         c2c_edges.sort( lambda x, y : cmp_edge( complete, x, y ) )
         connected_clusters = set()
         for k in range( -1, -num_c2c - 1, -1 ) :
-            edge  = c2c_edges[k]
-            node0 = edge[0]
-            node1 = edge[1]
-            simi  = complete[node0][node1]["similarity"]
-            desired.add_edge( node0, node1, similarity = simi, boundary = True )
+            edge   = c2c_edges[k]
+            node0  = edge[0]
+            node1  = edge[1]
+            simi   = complete[node0][node1]["similarity"]
+            mcs_id = complete[node0][node1]["mcs_id"    ]
+            desired.add_edge( node0, node1, similarity = simi, boundary = True, mcs_id = mcs_id )
             print "boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),)
             for e in unconnected_clusters :
                 if (node0 in clusters[e] or node1 in clusters[e]) :
@@ -185,3 +186,21 @@ def annotate_nodes_with_smiles( g ) :
             smiles = KBASE.ask( molid ).smiles()
             KBASE.deposit_extra( molid, "SMILES", smiles )
         g.node[molid]["SMILES"] = smiles
+
+
+
+def annotate_edges_with_smiles( g ) :
+    """
+
+    """
+    for e in g.edges( data = True ) :
+        try :
+            mcs_id = e[2]["mcs_id"]
+            try :
+                smiles = KBASE.ask( mcs_id, "SMILES" )
+            except LookupError :
+                smiles = KBASE.ask( mcs_id )[0].smiles()
+            KBASE.deposit_extra( mcs_id, "SMILES", smiles )
+            g[e[0]][e[1]]["SMILES"] = smiles
+        except KeyError :
+            pass
