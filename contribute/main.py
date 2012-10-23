@@ -51,8 +51,10 @@ def main( molid_list, opt ) :
 
     # Gets graph (`g') and clusters (`c').
     g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.1, max_csize = 64, num_c2c = 1 )
-    graph.annotate_nodes_with_smiles( g )
-    graph.annotate_edges_with_smiles( g )
+    graph.annotate_nodes_with_smiles ( g )
+    graph.annotate_nodes_with_title  ( g )
+    graph.annotate_edges_with_smiles ( g )
+    graph.annotate_edges_with_hexcode( g )
     
     if (DEBUG) :
         print "%d clusters (counted as the connected components in the graph):" % len( c )
@@ -80,9 +82,6 @@ def main( molid_list, opt ) :
         ag.node_attr["fixedsize"] = True
         ag.edge_attr["penwidth" ] = 2.0
         
-        for e in ag.nodes_iter() :
-            e.attr["label"] = str( e )[:7]
-
         simi  = [float( e.attr["similarity"] ) for e in ag.edges()]
         scale = 1.0 / max( simi )
         for e in ag.edges_iter() :

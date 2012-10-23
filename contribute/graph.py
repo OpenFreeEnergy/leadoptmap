@@ -189,6 +189,16 @@ def annotate_nodes_with_smiles( g ) :
 
 
 
+def annotate_nodes_with_title( g ) :
+    """
+
+    """
+    for molid in g.nodes() :
+        g.node[molid]["title"] = KBASE.ask( molid ).title()
+        g.node[molid]["label"] = molid[:7]
+
+
+
 def annotate_edges_with_smiles( g ) :
     """
 
@@ -204,3 +214,12 @@ def annotate_edges_with_smiles( g ) :
             g[e[0]][e[1]]["SMILES"] = smiles
         except KeyError :
             pass
+
+
+
+def annotate_edges_with_hexcode( g ) :
+    """
+
+    """
+    for e in g.edges() :
+        g[e[0]][e[1]]["label"] = "%s-%s" % (e[0][:7], e[1][:7],)
