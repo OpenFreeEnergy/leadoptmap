@@ -87,14 +87,13 @@ try :
     import openeye.oechem as oechem
 
     class OeMcs( Mcs ) :
-        def __init__( self, atom_expr = oechem.OEExprOpts_IntType, bond_expr = 0, ringchecking = 'Strict', min_num_atoms = 4, is_approximate = True ) :
+        def __init__( self, atom_expr = oechem.OEExprOpts_IntType, bond_expr = 0, ringchecking = 'Strict', is_approximate = True ) :
             """
             (To be implemented)
             """
             self._atom_expr      = atom_expr
             self._bond_expr      = bond_expr
             self._ringchecking   = ringchecking
-            self._min_num_atoms  = min_num_atoms
             self._is_approximate = is_approximate
             
 
