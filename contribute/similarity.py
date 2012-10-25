@@ -50,3 +50,7 @@ def by_heavy_atom_count( mol0, mol1, mcs ) :
     return math.exp( -BETA * energy )
     
 
+
+if ("__main__" == __name__) :
+    for i in range( 100 ) :
+        print i, math.exp( -0.4 * i )
