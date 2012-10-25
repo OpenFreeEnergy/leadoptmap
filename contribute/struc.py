@@ -223,7 +223,7 @@ class Struc( object ) :
 
 try :
     import schrodinger.structure as structure
-    
+
     class SchrodStruc( Struc ) :
         """
         A `Struc' subclass based on Schrodinger's infrastructure
@@ -636,7 +636,8 @@ try:
 
     def read_n_files_oe( filenames ) :
         """
-        `filenames' is a list of file names. The format of each file will be determined from the file's extension name. Reads the files and deposits them into the `KBASE'. Returns a list of keys.
+        `filenames' is a list of file names. The format of each file will be determined from the file's extension name.
+        Reads the files and deposits them into the `KBASE'. Returns a list of keys.
         """                                                   
         strucid = []                                          
         for fn in filenames :                                 
