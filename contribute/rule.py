@@ -8,6 +8,7 @@ from kbase import KBASE
 import similarity
 
 import hashlib
+import logging
 
 
 
@@ -186,9 +187,9 @@ class Mcs( Rule ) :
                         if (m > n) :
                             i = atom
                             n = m
-                    mcs0.delete_atom( i )                    
+                    mcs0.delete_atom( i )
                 else :
-                    print "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),)
+                    logging( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
             else :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )

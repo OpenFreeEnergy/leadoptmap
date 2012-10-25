@@ -13,6 +13,7 @@ import os
 import subprocess
 import hashlib
 import networkx
+import logging
 
 
 
@@ -137,9 +138,9 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         trim_cluster( desired, e, 2 )
 
     n = len( clusters )
-    print "%d clusters in total" % n
+    logging.info( "%d clusters in total" % n )
     for i, c in enumerate( clusters ) :
-        print "  size of cluster #%02d: %d" % (i, len( c ),)
+        logging.info( "  size of cluster #%02d: %d" % (i, len( c ),) )
     
     # Connects the clusters.
     unconnected_clusters = set( range( n ) )
@@ -152,9 +153,9 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         for e in other_clusters :
             c2c_edges.extend( networkx.edge_boundary( complete, this_cluster, e ) )
         if (len( c2c_edges ) == 0) :
-            print "WARNING: Cannot connect cluster #%d with others." % (cluster_index,)
-            print "         If there should be connections, consider to adjust the rules to"
-            print "         reduce 0-similarity assignments or loosen the MCS conditions."
+            logging.warn( "WARNING: Cannot connect cluster #%d with others." % (cluster_index,)      )
+            logging.warn( "         If there should be connections, consider to adjust the rules to" )
+            logging.warn( "         reduce 0-similarity assignments or loosen the MCS conditions."   )
             continue
         c2c_edges.sort( lambda x, y : cmp_edge( complete, x, y ) )
         connected_clusters = set()
@@ -165,7 +166,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
             simi   = complete[node0][node1]["similarity"]
             mcs_id = complete[node0][node1]["mcs_id"    ]
             desired.add_edge( node0, node1, similarity = simi, boundary = True, mcs_id = mcs_id )
-            print "boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),)
+            logging.warn( "boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),) )
             for e in unconnected_clusters :
                 if (node0 in clusters[e] or node1 in clusters[e]) :
                     connected_clusters.add( e )
