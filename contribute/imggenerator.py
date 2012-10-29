@@ -1,7 +1,7 @@
 import os
 import time
 import subprocess
-
+import sys
 class ImgGenerator:
     """
     A base class to generate 2D structure image file from SMILES
@@ -14,7 +14,7 @@ class ImgGenerator:
         return self._supported_formats.keys()
 
         
-    def generate(self, smiles, image, format=None):
+    def generate(self, smiles, image, format=None, callback=None):
         """
         Generating 2D image file from SMILES string
         @type smiles: string
@@ -37,7 +37,7 @@ class ImgGenerator:
             raise RuntimeError("format (%s) is not supported"%format)
         
         image_generator = self._supported_formats[format]
-        image_generator(smiles, image)
+        image_generator(smiles, image, callback=callback)
         
     def register(self, format, generator):
         self._supported_formats[format] = generator
@@ -135,6 +135,12 @@ class SchrodImgGenerator(ImgGenerator):
         self.register('svg', self.smiles2svg)
         
     def _load_modules(self):
+        virtual_x = None
+        if sys.platform != 'win32' and 'DISPLAY' not in os.environ:
+            # If there is no DISPLAY variable but there are tests that need X,
+            # start Xvfb.
+            print "Using VirtualX"
+            virtual_x = VirtualX()          
         from PyQt4 import QtGui, QtCore, QtSvg
         from schrodinger.application.canvas.base import ChmLicenseShared_isValid
         from schrodinger.application.canvas.utils import get_license
@@ -146,10 +152,12 @@ class SchrodImgGenerator(ImgGenerator):
         self.QtSvg = QtSvg
         self.canvas2d = canvas2d
     
-    def smiles2svg(self, smiles, svg_fname):
         
-        chmmol = self.canvas2d.ChmMol.fromSMILES(smiles)
-        pic = self._renderer.getQPicture(chmmol)
+    def smiles2mol(self, smiles):
+        return self.canvas2d.ChmMol.fromSMILES(smiles)    
+
+    def mol2svg(self, mol, svg_fname):
+        pic = self._renderer.getQPicture(mol, False)
         rect = pic.boundingRect()
         svg_gen = self.QtSvg.QSvgGenerator()
         svg_gen.setFileName(svg_fname)
@@ -158,10 +166,14 @@ class SchrodImgGenerator(ImgGenerator):
         qp = self.QtGui.QPainter(svg_gen) 
         qp.drawPicture(-pic.boundingRect().left(), -pic.boundingRect().top(), pic)
         qp.end()
+        
+    def smiles2svg(self, smiles, svg_fname):
+        mol = self.smiles2mol(smiles)
+        self.mol2svg(mol, svg_fname)
+
     
-    def smiles2image(self, smiles, image_fname):
-        chmmol = self.canvas2d.ChmMol.fromSMILES(smiles)
-        pic = self._renderer.getQPicture(chmmol)
+    def mol2image(self, mol, image_fname): 
+        pic = self._renderer.getQPicture(mol, False)
         rect = pic.boundingRect()
         qimage = self.QtGui.QImage(rect.width(), rect.height(),self.QtGui.QImage.Format_ARGB32)
         qimage.fill(self.QtCore.Qt.white)
@@ -169,3 +181,8 @@ class SchrodImgGenerator(ImgGenerator):
         qp.drawPicture(-pic.boundingRect().left(), -pic.boundingRect().top(), pic)
         qp.end()
         qimage.save(image_fname)
+    
+    def smiles2image(self, smiles, image_fname):
+        mol = self.smiles2mol(smiles)
+        self.mol2image(mol, image_fname)
+        

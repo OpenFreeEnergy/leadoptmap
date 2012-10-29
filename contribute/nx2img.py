@@ -3,6 +3,7 @@ import sys
 import os
 from imggenerator import SchrodImgGenerator, VirtualX
 
+STRUCT = 'structure'
 def guess_format(fname):
     format = None
     root, ext = os.path.splitext(fname)
@@ -15,6 +16,10 @@ def render_smiles(smiles, img_fname):
     img_generator.generate(smiles, img_fname)
     return '<TR><TD><IMG SRC="%s"/></TD></TR>'%img_fname
 
+def render_structure(mol, img_fname):
+    img_generator.mol2svg(mol, img_fname)
+    return '<TR><TD><IMG SRC="%s"/></TD></TR>'%img_fname
+
 def render_attr(attr_name, text):
     return render_text("%s: %s"%(attr_name, text))
 
@@ -22,12 +27,20 @@ def render_text(text):
     return "<TR><TD>%s</TD></TR>"%(text)
 
 class DotRender:
-    def __init__(self, D, img_generator, 
+    def __init__(self, G, img_generator, 
                  node_attributes, 
                  edge_attributes, 
                  save_image=True,
                  img_format='svg',
-                 font_size=40):
+                 font_size=40,
+                 align=False):
+        
+        self._G = G
+        self._align = align
+        if self._align:
+            self._alignGraph()
+        
+        D = nx.to_pydot(G)
         self._D = D
         self._img_list = []
         self._img_generator = img_generator
@@ -60,21 +73,46 @@ class DotRender:
                                 self._img_format)
         return img_fname
     
+    def _renderNodeStructure(self, dot_node, smiles, img_fname):
+        if self._align:
+            node_id = self._getNodeName(dot_node)
+            mol = self._G.node[node_id][STRUCT]
+            return render_structure(mol, img_fname)
+        else:
+            return render_smiles(smiles, img_fname)
+    
+    def _renderEdgeStructure(self, source, dest, smiles, img_fname):
+        if self._align:
+            source_id = self._getNodeName(source)
+            dest_id = self._getNodeName(dest)
+            mol = self._G.edge[source_id][dest_id][STRUCT]
+            return render_structure(mol, img_fname)
+        else:
+            return render_smiles(smiles, img_fname)
+        
+    
+    def _getNodeName(self, node):
+        # networkx node id is a hex string
+        # pydot seems to add '"' to id that begins with digit
+        name = node.get_name()
+        name = name.strip('"')
+        return name
+        
     def _renderNodes(self):
         for i, node in enumerate(self._D.get_node_list()):    
             node_index = i + 1
             node.set_fontsize(self._font_size)   
-            name = node.get_name()
-            name = name.strip('"')
+            name = self._getNodeName(node)
             render_string = ''
+                       
             for attr_name  in self._node_attributes:
                 attr = node.get(attr_name)
                 if attr:
                     if attr_name == 'SMILES':
-                        img_fname = self._getImgFname(name)
-                        img_fname = self._getImgFname("node_%06d"%node_index)
-                        render_string = render_string + render_smiles(attr, img_fname)
-                        self._img_list.append(img_fname)
+                        img_fname = self._getImgFname("node_%06d"%node_index) 
+                        render_string = render_string + \
+                            self._renderNodeStructure(node, attr, img_fname)
+                        self._img_list.append(img_fname)                  
                     else:
                         render_string = render_string + render_attr(attr_name, attr)
                         
@@ -119,8 +157,9 @@ class DotRender:
                     if attr:
                         if attr_name == 'SMILES':
                             img_fname = self._getImgFname("edge_%06d"%edge_index)
-                            render_string = render_string + render_smiles(attr, img_fname)
-                            self._img_list.append(img_fname)
+                            render_string = render_string + \
+                                self._renderEdgeStructure(source, dest, attr, img_fname)
+                            self._img_list.append(img_fname)                       
                         else:
                             render_string = render_string + render_attr(attr_name, attr)
                         
@@ -129,11 +168,146 @@ class DotRender:
                     pass        
             
             edge.set_label('<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">%s</TABLE>>'%(render_string)) 
-        
-
-
     
+    def _alignGraph(self):
+        
+        from schrodinger.structutils.analyze import evaluate_smarts_canvas
+        from schrodinger.infra import canvas2d
+        from operator import itemgetter
+        from schrodinger.application.canvas.base import ChmLicenseShared_isValid
+        from schrodinger.application.canvas.utils import get_license
+        if not ChmLicenseShared_isValid():
+            canvas_license = get_license("LICENSE_SHARED")           
+        
+        IGNORE_HYDROGEN = 0
+        RESCALE = 2
+        FIXUP = True        
+        
+        def smiles2mol(smiles):
+            mol = canvas2d.ChmMol.fromSMILES(smiles)    
+            # need to generate 2D coordinates, otherwise 
+            # the following function call to generateFromTemplateAndApply
+            # will not have any effects
+            canvas2d.Chm2DCoordGen.generateAndApply(mol, IGNORE_HYDROGEN)
+            return mol
+        
+        def evaluate_smarts(mol2d, smarts):
+            mol3d = canvas2d.convertChmMoltoSWIG(mol2d)
+            return evaluate_smarts_canvas(mol3d, smarts, start_index=0)            
 
+
+        aligned = set()
+        
+        # loop over connected component of the graph
+        for node_list in nx.connected_components(self._G):
+
+            # sort the nodes by their degrees.
+            sorted_nodes = sorted(self._G.degree(node_list).items(), \
+                                  key=itemgetter(1), reverse=True)
+            node_list = [ n[0] for n in sorted_nodes]
+
+            # select the node with biggest degree as reference node
+            ref_node_id = sorted_nodes[0][0]
+            ref_node = self._G.node[ref_node_id]
+            ref_node[STRUCT] = smiles2mol(ref_node['SMILES'])
+            aligned.add(ref_node_id)
+
+            # doing breadth-first search to get the edge list
+            edge_list = []
+            for id1, id2 in nx.bfs_edges(self._G, ref_node_id):
+                if id1 < id2:
+                    edge_list.append((id1, id2))
+                else:
+                    edge_list.append((id2, id1))
+            
+            edge_set = set(edge_list)
+
+            # adding unvisited edges to edge_list 
+            for id1, id2 in self._G.edges(node_list):
+                if id1 > id2:
+                    tmp = id1
+                    id1 = id2
+                    id2 = tmp
+                    
+                if (id1, id2) in edge_set:
+                    continue
+                edge_list.append((id1, id2))
+                
+                
+            # loop over edge list to align 2D structure. 
+            for node1_id, node2_id in edge_list:
+                node1 = self._G.node[node1_id]
+                node2 = self._G.node[node2_id]
+    
+                if STRUCT not in node1:
+                    node1[STRUCT] = smiles2mol(node1['SMILES'])
+                if STRUCT not in node2:
+                    node2[STRUCT] = smiles2mol(node2['SMILES'])         
+                    
+                mol1 = node1[STRUCT]
+                mol2 = node2[STRUCT] 
+                edge_data = self._G.get_edge_data(node1_id, node2_id)
+                # when the backend is adjusted, we should have a pair
+                # of SMARTS that will match one node of the edge
+                # for now we just use the SMILES and assume it will match
+                # both nodes.
+                smarts = edge_data['SMILES'] 
+                
+                ma1 = evaluate_smarts(mol1, smarts)
+                ma2 = evaluate_smarts(mol2, smarts)
+                
+                if len(ma1) > 0 and len(ma2) > 0:
+                    if node1_id in aligned and node2_id in aligned:
+                        pass
+                    elif node1_id not in aligned:
+                        # use node2 as reference
+                        canvas2d.Chm2DCoordGen.generateFromTemplateAndApply(\
+                            mol1, mol2,
+                            ma1[0], ma2[0], 
+                            IGNORE_HYDROGEN,
+                            RESCALE,
+                            FIXUP)
+                        aligned.add(node2_id)
+                    elif node2_id not in aligned:
+                        # use node1 as reference
+                        canvas2d.Chm2DCoordGen.generateFromTemplateAndApply(\
+                            mol2, mol1,
+                            ma2[0], ma1[0], 
+                            IGNORE_HYDROGEN,
+                            RESCALE,
+                            FIXUP)  
+                        aligned.add(node1_id)
+                    else:
+                        print "can not align (%s, %s)"%(node1_id, node2_id)
+                else:
+                    print "(%s, %s) mismatched"%(node1['title'], node2['title'])
+                
+                #align MCS
+                template_mol = None
+                template_core = None
+                if len(ma1) > 0:
+                    template_mol = mol1
+                    template_core = ma1[0]
+                elif len(ma2) > 0:
+                    template_mol = mol2
+                    template_core = ma2[0]   
+                else:
+                    print "unable to align MCS for edge(%s, %s)"%(node1_id, node2_id)
+                
+                mcs_frag = smiles2mol(edge_data['SMILES'])
+                            
+                if template_mol and len(template_core) > 0:
+    
+                    canvas2d.Chm2DCoordGen.generateFromTemplateAndApply(\
+                        mcs_frag, template_mol,
+                        range(len(template_core)), template_core, 
+                        IGNORE_HYDROGEN,
+                        RESCALE,
+                        FIXUP)   
+                    
+                self._G.edge[node1_id][node2_id][STRUCT] = mcs_frag 
+            
+   
 
 
 
@@ -160,6 +334,10 @@ if __name__ == '__main__':
     parser.add_option("-e", "--edge_attribute",
                       action="append", dest="edge_attributes", default=[],
                       help="node attribues to be rendered. 'SMILES' is the default attribute.")        
+    parser.add_option("-a", "--align",
+                      action="store_true", dest="align", default=False,
+                      help="Align 2D image.")
+    
     
     options, arg = parser.parse_args()
     if len(arg) != 2:
@@ -171,7 +349,7 @@ if __name__ == '__main__':
         options.node_attributes.append('title')
         
     if len(options.edge_attributes) == 0:
-        options.node_attributes.append('SMILES')
+        options.edge_attributes.append('SMILES')
   
         
     input_pickle = arg[0]
@@ -182,22 +360,18 @@ if __name__ == '__main__':
         print "WARNING:the output svg file depends on intermediate svg files, please use -s option."
         sys.exit(0)
 
-    G = nx.read_gpickle(input_pickle)
-    D = nx.to_pydot(G)
+    G = nx.read_gpickle(input_pickle)    
     
-    virtual_x = None
-    if sys.platform != 'win32' and 'DISPLAY' not in os.environ:
-        # If there is no DISPLAY variable but there are tests that need X,
-        # start Xvfb.
-        print "Using VirtualX"
-        virtual_x = VirtualX()    
+    
+  
     img_generator = SchrodImgGenerator()
 
-    render = DotRender(D, img_generator, 
+    render = DotRender(G, img_generator, 
                        options.node_attributes,
                        options.edge_attributes,
                        save_image=options.save,
-                       img_format=options.format)
+                       img_format=options.format,
+                       align=options.align)
 
     print "rendering..."
     render.run(output_fname, format=format)
