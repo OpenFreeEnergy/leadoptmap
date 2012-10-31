@@ -6,6 +6,7 @@
 from kbase import KBASE
 
 import os
+import copy
 import hashlib
 
 
@@ -58,11 +59,14 @@ class Struc( object ) :
     """
     def __init__( self ) :
         # Public attributes:
-        self.atom = None
+        self.atom_prop = []
 
         # Private attributes:
         self._id = None
 
+        for i in range( len( self.atom ) + 1 ) :
+            self.atom_prop.append( {} )
+        
         
 
     def __str__( self ) :
@@ -232,12 +236,12 @@ try :
             """
             `struc' should be a `schrodinger.structure.Structure' object.
             """
-            Struc.__init__( self )
             self._struc = struc
 
             # Public attributes:
             self.atom = self._struc.atom
             self.bond = self._struc.bond
+            Struc.__init__( self )
 
 
 
@@ -245,16 +249,22 @@ try :
             """
             Returns a copy of this structure.
             """
-            return SchrodStruc( self._struc.copy() )
-
+            ret           = SchrodStruc( self._struc.copy() )
+            ret.atom_prop = copy.deepcopy( self.atom_prop )
+            return ret
+            
 
 
         def extract( self, indices ) :
             """
             Return a new structure object which contains the atoms of the current structure that appear in the specified list.
             """
-            return SchrodStruc( self._struc.extract( indices, True ) )
-
+            ret = SchrodStruc( self._struc.extract( indices, True ) )
+            indices.sort()
+            for i, e in enumerate( indices, start = 1 ) :
+                ret.atom_prop[i] = copy.deepcopy( self.atom_prop[e] )
+            return ret
+        
         
         
         def title( self ) :
@@ -341,7 +351,31 @@ try :
                 ret.append( int( e ) )
             return ret
         
+
+
+        def molecules( self ) :
+            """
+            Returns a list of atom lists. Each element list is a list of atoms of a molecule in the structure. The first
+            element in the returned list belongs to the biggest molecule.
+            """
+            ret = []
+            for mol in self._struc.molecule :
+                ret.append( mol.getAtomList() )
                 
+            def cmp_mol( x, y ) :
+                num_x = len( x )
+                num_y = len( y )
+                if (num_y == num_x) :
+                    heavy_atoms    = set( self._struc.heavy_atoms() )
+                    num_heavy_in_x = len( set( x ) - heavy_atoms )
+                    num_heavy_in_y = len( set( y ) - heavy_atoms )
+                    return num_heavy_in_y - num_heavy_in_x
+                return num_y - num_x
+            
+            ret.sort( cmp = lambda x, y : len( y ) - len( x ) )
+            return ret
+        
+        
         
         def total_charge( self ) :
             """
@@ -360,17 +394,24 @@ try :
             """
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
+            atom_index.sort()
+            atom_index.reverse()
             self._struc.deleteAtoms( atom_index )
+            for i in atom_index :
+                del self.atom_prop[i]
             
 
 
-        def smarts( self ) :
+        def smarts( self, atoms = None ) :
             """
             Returns a SMARTS string for this structure.
+
+            @type  atoms: C{list} of C{int}
+            @param atoms: A list of atom indices
             """
             import schrodinger.structutils.analyze as analyze
 
-            return analyze.generate_smarts( self._struc )
+            return analyze.generate_smarts( self._struc, atoms )
 
 
             
@@ -415,7 +456,11 @@ try :
         """
         ret = []
         for ct in structure.StructureReader( filename, format = format ) :
-            ret.append( SchrodStruc( ct ) )
+            struc = SchrodStruc( ct )
+            for i in range( 1, len( struc.atom ) + 1 ) :
+                struc.atom_prop[i]["orig_index"] = i
+            ret.append( struc )
+            
         return ret
 
 
@@ -442,16 +487,14 @@ except ImportError, e :
 
 
 try:
-    
     import openeye.oechem as oechem 
+
     class OeStruc( Struc ) :
         """
         A `Struc' subclass based on Openeye OEMol's infrastructure
         """
 
         def __init__( self, struc ) :
-            
-            Struc.__init__( self )
             self._struc = struc
 
             self.atom = {}
@@ -461,6 +504,8 @@ try:
                     print "Struc has duplicate atom index : %s need to check"%(oe_idx)
                 else:
                     self.atom[oe_idx] = atom
+            Struc.__init__( self )
+
 
 
         def copy( self ) :
