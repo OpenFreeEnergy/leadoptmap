@@ -17,7 +17,7 @@ import logging
 
 
 
-def create( mcs_ids, rule ) :
+def create( basic_graph, mcs_ids, rule ) :
     """
     Returns a graph. Node = molecule's ID or name, edge = similarity score
     
@@ -28,23 +28,15 @@ def create( mcs_ids, rule ) :
     @type  use_name: C{bool}
     @param use_name: If true, node of the graph is molecule's name; otherwise, it is the molecule's ID.
     """
-    # Collects all parents' IDs
-    ids = set()
+    g = copy.deepcopy( basic_graph )
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
-        ids.add( id0 )
-        ids.add( id1 )
-
-    n = len( ids )
-    i = 0
-    g = networkx.Graph()
-    g.add_nodes_from( ids )
-        
-    for id in mcs_ids :
-        id0, id1 = mcs.get_parent_ids( id )
-        simi = rule.similarity( id0, id1, mcs_id = id )
+        simi     = rule.similarity( id0, id1, mcs_id = id )
         if (simi > 0) :
-            partial_ring = int( KBASE.ask( id, "partial_ring" ) )
+            try :
+                partial_ring = int( KBASE.ask( id, "partial_ring" ) )
+            except LookupError :
+                partial_ring = 0
             g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring, mcs_id = id )
 
     return g
@@ -107,10 +99,20 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     @type      num_c2c: C{int}
     @param     num_c2c: Number of cluster-to-cluster edges
     """
-    complete = create( mcs_ids, basic_rule )
+    basic_graph = networkx.Graph()
+    all_ids     = set()
+    for id in mcs_ids :
+        id0, id1 = mcs.get_parent_ids( id )
+        simi     = basic_rule.similarity( id0, id1, mcs_id = id )
+        print simi
+        KBASE.deposit_extra( id, "similarity", simi )
+        all_ids.add( id0 )
+        all_ids.add( id1 )
+        
+    basic_graph.add_nodes_from( all_ids )
 
-    # FIXME: Creates the `desired' from the `complete' instead of from scratch.
-    desired  = create( mcs_ids, rule.Cutoff( simi_cutoff, basic_rule ) )
+    complete = create( basic_graph, mcs_ids, rule.Cutoff( 1           ) )
+    desired  = create( basic_graph, mcs_ids, rule.Cutoff( simi_cutoff ) )
     clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
     largest  = clusters[-1]
 
@@ -121,17 +123,24 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         low      = simi_cutoff
         trial    = 1
         pretrial = 0
-        while (abs( trial - pretrial ) > 1E5) :
+        while (abs( trial - pretrial ) > 1E-6) :
             n = len( largest )
+            print n, high, mid, low, trial, pretrial
+            pretrial = trial
             if (max_csize < n) :
                 trial = 0.5 * (high + mid)
+                low   = mid
+                mid   = trial
             elif (int( max_csize * 0.95 ) > n) :
                 trial = 0.5 * (mid + low)
+                high  = mid
+                mid   = trial
             else :
                 break
-            desired  = create( mcs_ids, rule.Cutoff( trial, basic_rule ) )
+            desired  = create( basic_graph, mcs_ids, rule.Cutoff( trial ) )
             clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
             largest  = clusters[-1]
+            
 
     # Trims clusters.
     for e in clusters :
@@ -210,9 +219,27 @@ def annotate_edges_with_smiles( g ) :
             try :
                 smiles = KBASE.ask( mcs_id, "SMILES" )
             except LookupError :
-                smiles = KBASE.ask( mcs_id )[0].smiles()
+                smiles = mcs.get_struc( mcs_id ).smiles()
             KBASE.deposit_extra( mcs_id, "SMILES", smiles )
             g[e[0]][e[1]]["SMILES"] = smiles
+        except KeyError :
+            pass
+
+
+
+def annotate_edges_with_matches( g ) :
+    """
+
+    """
+    for e in g.edges( data = True ) :
+        try :
+            mcs_id      = e[2]["mcs_id"]
+            mol0        = KBASE.ask( e[0] )
+            mol1        = KBASE.ask( e[1] )
+            mcs_matches = KBASE.ask( mcs_id, "mcs-matches" )
+            trimmed_mcs = KBASE.ask( mcs_id, "trimmed-mcs" )
+            g[e[0]][e[1]]["original-mcs"] = {e[0]:mol0.smarts( mcs_matches[e[0]] ), e[1]:mol1.smarts( mcs_matches[e[1]] ),}
+            g[e[0]][e[1]][ "trimmed-mcs"] = trimmed_mcs
         except KeyError :
             pass
 

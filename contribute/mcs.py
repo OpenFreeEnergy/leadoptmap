@@ -9,6 +9,14 @@ import struc
 import os
 import subprocess
 import hashlib
+import tempfile
+
+
+
+__junk, __tempfile_rawname = tempfile.mkstemp( dir = "." )
+os.remove( __tempfile_rawname )
+
+tempfile_basename = __tempfile_rawname + "__temp_file_ok_to_delete_after_running__"
 
 
 
@@ -25,7 +33,7 @@ class Mcs( object ) :
     
 
     @staticmethod
-    def deposit_to_kbase( id0, id1, atom_match0, atom_match1, mcs_mol ) :
+    def deposit_to_kbase( id0, id1, atom_match0, atom_match1 ) :
         """
         Deposits a MCS substructure and relevant information into the kbase and returns its ID in the C{KBASE}.
 
@@ -43,16 +51,16 @@ class Mcs( object ) :
         name0     = mol0.title()
         name1     = mol1.title()
         mcs_title = "mcs@%s..%s" % (name0, name1,)
-        mcs_mol.set_title( mcs_title )
-        mcs_mol.set_id   ( None      )
+        mcs_id    = hashlib.sha1( mcs_title ).hexdigest()
+        mcs_id    = KBASE.deposit( mcs_id, mcs_title )
+
+        # Sorts the two lists according to the ascending order of atom indices of the first list.
+        atom_match0, atom_match1 = zip( *sorted( zip( atom_match0, atom_match1 ), cmp = lambda x, y : x[0] - y[0] ) )
+        atom_match0, atom_match1 = list( atom_match0 ), list( atom_match1 )
+
+        KBASE.deposit_extra( mcs_id, "mcs-parents", (id0,             id1,            ) )
+        KBASE.deposit_extra( mcs_id, "mcs-matches", {id0:atom_match0, id1:atom_match1,} )
         
-        mcs_id = KBASE.deposit( mcs_mol.id(), [mcs_mol,] )
-        if (mcs_mol.id() != mcs_id) :
-            mcs_mol.set_id( mcs_id )
-            KBASE.deposit( mcs_id, [mcs_mol,], should_overwrite = True )
-        
-        KBASE.deposit_extra( mcs_id, "mcs-parents", (id0, id1,)                 )
-        KBASE.deposit_extra( mcs_id, "mcs-matches", (atom_match0, atom_match1,) )
         return mcs_id
         
     
@@ -244,9 +252,9 @@ try :
 
 
         def search_all( self, mols ) :
-            mae_fname = "__temp_file_ok_to_delete_after_running__.mae"
-            out_fname = "__temp_file_ok_to_delete_after_running__.csv"
-            log_fname = "__temp_file_ok_to_delete_after_running__.log"
+            mae_fname = tempfile_basename + ".mae"
+            out_fname = tempfile_basename + ".csv"
+            log_fname = tempfile_basename + ".log"
             log_fh    = open( log_fname, "w" )
 
             if (os.path.isfile( mae_fname )) :
@@ -262,7 +270,7 @@ try :
                             "-imae",     mae_fname,
                             "-opw",      out_fname,
                             "-atomtype", str( self._typing ),
-                            #"-nobreakring",
+                            "-nobreakring",
                             ]
             mcs_proc     = subprocess.Popen( cmd, stderr = subprocess.STDOUT, stdout = log_fh )
             null, stderr = mcs_proc.communicate()
@@ -293,21 +301,10 @@ try :
                 mol0 = KBASE.ask( id0 )
                 mol1 = KBASE.ask( id1 )
 
-                atom_match0 = set( [int( i ) for i in m.mcs_atom0.split( ',' )] )
-                atom_match1 = set( [int( i ) for i in m.mcs_atom1.split( ',' )] )
-                mcs_mol0    = mol0.extract( atom_match0 )
+                atom_match0 = [int( i ) for i in m.mcs_atom0.split( ',' )]
+                atom_match1 = [int( i ) for i in m.mcs_atom1.split( ',' )]
 
-                for e in analyze.evaluate_smarts_canvas( mol0._struc, m.mcs_smarts0 ) :
-                    if (atom_match0 == set( e )) :
-                        atom_match0 = e
-                        break
-
-                for e in analyze.evaluate_smarts_canvas( mol1._struc, m.mcs_smarts1 ) :
-                    if (atom_match1 == set( e )) :
-                        atom_match1 = e
-                        break
-                    
-                ret.append( self.deposit_to_kbase( id0, id1, atom_match0, atom_match1, mcs_mol0 ) )
+                ret.append( self.deposit_to_kbase( id0, id1, atom_match0, atom_match1 ) )
                 
             return ret
         
@@ -325,6 +322,27 @@ def get_parent_ids( mcs_id ) :
     """
     return KBASE.ask( mcs_id, "mcs-parents" )
 
+
+
+def get_struc( mcs_id ) :
+    """
+
+    """
+    title                    = KBASE.ask( mcs_id                )
+    id0, id1                 = KBASE.ask( mcs_id, "mcs-parents" )
+    mcs_matches              = KBASE.ask( mcs_id, "mcs-matches" )
+    atom_match0, atom_match1 = mcs_matches[id0], mcs_matches[id1]
+    mol0                     = KBASE.ask( id0 )
+    mol1                     = KBASE.ask( id1 )
+    mcs                      = KBASE.ask( id0 ).extract( atom_match0 )
+
+    for i, e in enumerate( atom_match1, start = 1 ) :
+        mcs.atom_prop[i]["mapped_index"] = e
+
+    mcs.set_title( title  )
+    mcs.set_id   ( mcs_id )
+    return mcs
+    
 
 
 if ("__main__" == __name__) :

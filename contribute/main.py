@@ -26,10 +26,10 @@ except ImportError :
 
 
 # Logger setup
-root = logging.getLogger()
-if (root.handlers) :
-    for handler in root.handlers :
-        root.removeHandler( handler )
+logger = logging.getLogger()
+if (logger.handlers) :
+    for handler in logger.handlers :
+        logger.removeHandler( handler )
         
 logging.basicConfig( format  = '%(asctime)s: %(message)s',
                      datefmt = '%m/%d/%y %I:%M:%S',
@@ -46,31 +46,34 @@ def main( molid_list, opt ) :
     for id in molid_list :
         mols.append( KBASE.ask( id ) )
 
-    if   (struc.infrastructure == "schrodinger") : mcs_engine = mcs.SchrodMcs( 3 )
+    if   (struc.infrastructure == "schrodinger") : mcs_engine = mcs.SchrodMcs( 1 )
     elif (struc.infrastructure == "oechem"     ) : mcs_engine = mcs.OeMcs()
 
     logging.info( "MCS searching..." )
     mcs_ids    = mcs_engine.search_all( mols )
-    basic_rule = rule.Mcs( rule.EqualCharge(), rule.MinimumNumberOfAtom() )
+    basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
 
     logging.info( "MCS searching... Done" )
-    for id in mcs_ids :
-        mol_id = mcs.get_parent_ids( id )
-        logging.debug( "%.3f %s" % (basic_rule.similarity( mol_id[0], mol_id[1], mcs_id = id ), KBASE.ask( id )[0].title(),) )
+    if (logger.getEffectiveLevel() == logging.DEBUG) :
+        for id in mcs_ids :
+            mol_id = mcs.get_parent_ids( id )
+            logging.debug( "%.3f %s" % (basic_rule.similarity( mol_id[0], mol_id[1], mcs_id = id ),
+                                        KBASE.ask( id )[0].title(),) )
 
     # Gets graph (`g') and clusters (`c').
     logging.info( "Creating graph..." )
-    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.06, max_csize = 64, num_c2c = 1 )
+    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.4, max_csize = 64, num_c2c = 1 )
     graph.annotate_nodes_with_smiles ( g )
     graph.annotate_nodes_with_title  ( g )
     graph.annotate_edges_with_smiles ( g )
     graph.annotate_edges_with_hexcode( g )
+    graph.annotate_edges_with_matches( g )
     logging.info( "Creating graph... Done" )
     
     logging.debug( "%d clusters (counted as the connected components in the graph):" % len( c ) )
     c.sort( lambda x, y : len( x ) - len( y ) )
     for i, e in enumerate( c ) :
-        logging.debug( "cluser #%d, %d structures:" % (i, len( e ),) )
+        logging.debug( "cluster #%d, %d structures:" % (i, len( e ),) )
         titles = [KBASE.ask( id ).title() for id in e]
         titles.sort()
         for t in titles :
@@ -120,7 +123,7 @@ def main( molid_list, opt ) :
         if (opt.siminp_type == "mae") :
             import schrodinger.application.desmond.fep_mapping as dfm
 
-            tmp_mae_fname = "__temp_file_ok_to_delete_after_running__.mae"
+            tmp_mae_fname = mcs.tempfile_basename + "_siminp.mae"
             for id0, id1, attr in edges :
                 mol0      = KBASE.ask( id0 )
                 mol1      = KBASE.ask( id1 )
@@ -137,7 +140,7 @@ def main( molid_list, opt ) :
                 except (RuntimeError, NameError,) :
                     logging.warn( "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,) )
 
-    tmp_fnames = glob.glob( "__temp_file_ok_to_delete_after_running__.*" )
+    tmp_fnames = glob.glob( mcs.tempfile_basename + "*" )
     for fname in tmp_fnames :
         os.remove( fname )
         

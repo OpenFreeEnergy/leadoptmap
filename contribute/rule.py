@@ -5,6 +5,7 @@
 
 from kbase import KBASE
 
+import mcs
 import similarity
 
 import hashlib
@@ -63,12 +64,12 @@ class Rule( object ) :
 
 class MinimumNumberOfAtom( Rule ) :
     """
-    Rule on minimum number of atoms in the maximum common substructure
+    Rule on minimum number of heavy atoms in the maximum common substructure
 
-    Similarity score is 0 if the minimum number of atoms in the maximum common substructure is less than a specified threshold
-    number, or 1 if otherwise.
+    Similarity score is 0 if the minimum number of heavy atoms in the maximum common substructure is less than a specified
+    threshold value, or 1 if otherwise.
     """
-    def __init__( self, threshold = 4, heavy_only = False, *subrules ) :
+    def __init__( self, threshold = 4, *subrules ) :
         """
         @type   threshold: C{int}
         @param  threshold: Threshold of number of atoms. Above this threshold, the similarity score is 1; otherwise it's 0.
@@ -77,19 +78,18 @@ class MinimumNumberOfAtom( Rule ) :
         """
         Rule.__init__( self, *subrules )
         self._threshold  = threshold
-        self._heavy_only = heavy_only
 
 
         
     def _similarity( self, id0, id1, **kwarg ) :
         # Uses the first common substructure.
-        mcs0 = KBASE.ask( kwarg["mcs_id"] )[0]
+        num_atom_mcs  = KBASE.ask( kwarg["mcs_id"], "num_heavy_atoms" )
+        num_atom_mol0 = len( KBASE.ask( id0 ).heavy_atoms() )
+        num_atom_mol1 = len( KBASE.ask( id1 ).heavy_atoms() )
 
-        if (self._heavy_only) :
-            num_atom = len( mcs0.heavy_atoms() )
-        else :
-            num_atom = mcs0.atom
-        return float( num_atom >= self._threshold )
+        return float( (num_atom_mcs  >= self._threshold    ) or
+                      (num_atom_mol0 <  self._threshold + 3) or
+                      (num_atom_mol1 <  self._threshold + 3) )
 
 
 
@@ -109,7 +109,11 @@ class Cutoff( Rule ) :
         
         
     def similarity( self, id0, id1, **kwarg ) :
-        simi = Rule.similarity( self, id0, id1, **kwarg )
+        try :
+            mcs_id = kwarg["mcs_id"]
+            simi   = KBASE.ask( mcs_id, "similarity" )
+        except KeyError :
+            simi = Rule.similarity( self, id0, id1, **kwarg )
         if (simi < self._cutoff) :
             simi = 0.0
         return simi
@@ -150,29 +154,68 @@ class Mcs( Rule ) :
 
     def _similarity( self, id0, id1, **kwarg ) :
         # Uses the first common substructure.
-        mcs_id       = kwarg["mcs_id"]
-        mcs0         = KBASE.ask( kwarg["mcs_id"] )[0].copy()
-        ring_atoms   = mcs0.ring_atoms()
+        mcs_id = kwarg["mcs_id"]
+        mcs0   = mcs.get_struc( mcs_id )
+        mol0   = KBASE.ask( id0 )
+        mol1   = KBASE.ask( id1 )
 
-        # Deletes partial rings.
-        mol0            = KBASE.ask( id0 )
-        mol1            = KBASE.ask( id1 )
-        match0, match1  = zip( *sorted( zip( *KBASE.ask( mcs_id, "mcs-matches" ) ), cmp = lambda x, y : x[0] - y[0] ) )
-        ring_atoms0     = mol0.ring_atoms()
-        ring_atoms1     = mol1.ring_atoms()
+        num_heavy_atoms = len( mcs0.heavy_atoms() )
+        num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
+        
+        KBASE.deposit_extra( mcs_id, "num_heavy_atoms", num_heavy_atoms )
+        KBASE.deposit_extra( mcs_id, "num_light_atoms", num_light_atoms )
+        
+        return similarity.by_heavy_atom_count( mol0, mol1, mcs0 )
 
-        nonring_atoms   = set( range( 1, len( mcs0.atom ) + 1 ) ) - ring_atoms
-        nonring_atoms0  = set( [match0[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol0's.
-        nonring_atoms1  = set( [match1[e - 1] for e in nonring_atoms] )    # Maps indices from MCS' to mol1's.
-        nonring_atoms0 &= ring_atoms0                                      # Gets the matched ring atoms in mol0.
-        nonring_atoms1 &= ring_atoms1                                      # Gets the matched ring atoms in mol1.
-        nonring_atoms0  = set( [match0.index( e ) + 1 for e in nonring_atoms0] )     # Maps indices from mol0's to MCS'
-        nonring_atoms1  = set( [match1.index( e ) + 1 for e in nonring_atoms1] )     # Maps indices from mol1's to MCS'
-        nonring_atoms   = list( nonring_atoms0 | nonring_atoms1 )          # Now we get all should-be-deleted atoms in the MCS.
-        mcs0.delete_atom( nonring_atoms )
 
+
+class TrimMcs( Rule ) :
+    """
+    Delete chiral atoms and partial ring atoms from MCS, return a score.
+    """
+    def __init__( self, *subrules ) :
+        Rule.__init__( self, *subrules )
+        
+
+
+    def _delete_broken_ring( self, mol0, mol1, mcs0 ) :
+        mcs_ring_atoms = mcs0.ring_atoms()
+        mcs_nonr_atoms = set( range( 1, len( mcs0.atom ) + 1 ) ) - mcs_ring_atoms
+        mo0_ring_atoms = mol0.ring_atoms()
+        mo1_ring_atoms = mol1.ring_atoms()
+
+        mo0_conflict   = set( [mcs0.atom_prop[i][  "orig_index"] for i in mcs_nonr_atoms] ) & mo0_ring_atoms
+        mo1_conflict   = set( [mcs0.atom_prop[i]["mapped_index"] for i in mcs_nonr_atoms] ) & mo1_ring_atoms
+        
+        # Now indices in mo0_conflict and mo1_conflict are indices in mol0 and mo1, respectively.
+        # We need to map them back to the indices in mcs0.
+        mo0_to_mcs = {}
+        mo1_to_mcs = {}
+        for i in range( 1, len( mcs0.atom ) + 1 ) :
+            mo0_to_mcs[mcs0.atom_prop[i][  "orig_index"]] = i
+            mo1_to_mcs[mcs0.atom_prop[i]["mapped_index"]] = i
+        mo0_conflict = set( [mo0_to_mcs[i] for i in mo0_conflict] )
+        mo1_conflict = set( [mo1_to_mcs[i] for i in mo1_conflict] )
+
+        conflict = list( mo0_conflict | mo1_conflict )
+        mcs0.delete_atom( conflict )
+        return conflict
+        
+        
+
+    def _similarity( self, id0, id1, **kwarg ) :
+        # Uses the first common substructure.
+        mcs_id = kwarg["mcs_id"]
+        mcs0   = mcs.get_struc( mcs_id ).copy()
+        mol0   = KBASE.ask( id0 )
+        mol1   = KBASE.ask( id1 )
+
+        orig_num_heavy_atoms = len( mcs0.heavy_atoms() )
+        partial_ring         = self._delete_broken_ring( mol0, mol1, mcs0 )
+            
         # Deletes chiral atoms.
         chiral_atoms = mcs0.chiral_atoms()
+        ring_atoms   = mcs0.  ring_atoms()
         chiral_atoms.sort( reverse = True )
         for atom_index in chiral_atoms :
             if (atom_index in ring_atoms) :
@@ -189,15 +232,42 @@ class Mcs( Rule ) :
                             n = m
                     mcs0.delete_atom( i )
                 else :
-                    logging( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
+                    logging.warn( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
             else :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )
 
-        KBASE.deposit_extra( mcs_id, "trimmed-mcs",  mcs0                 )
-        KBASE.deposit_extra( mcs_id, "partial_ring", len( nonring_atoms ) )
+        # If the deletion results in multiple unconnected fragments, we keep only the biggest one.
+        atoms_to_delete = []
+        for e in mcs0.molecules()[1:] :
+            atoms_to_delete.extend( e )
+        mcs0.delete_atom( atoms_to_delete )
 
-        return similarity.by_heavy_atom_count( mol0, mol1, mcs0 )
+        # Gets the SMARTS for the trimmed structure.
+        atom_list0 = []
+        atom_list1 = []
+        for e in mcs0.atom_prop[1:] :
+            atom_list0.append( e[  "orig_index"] )
+            atom_list1.append( e["mapped_index"] )
+
+        smarts0 = mol0.smarts( atom_list0 )
+        try :
+            smarts1 = mol1.smarts( atom_list1 )
+        except ValueError :
+            #print atom_list0, atom_list1
+            #print mol0.title(), mol1.title()
+            smarts1 = ""
+        
+        KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smarts0, id1:smarts1,} )
+        KBASE.deposit_extra( mcs_id, "partial_ring", len( partial_ring ) )
+
+        num_heavy_atoms = len( mcs0.heavy_atoms() )
+        num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
+        
+        KBASE.deposit_extra( mcs_id, "num_heavy_atoms", num_heavy_atoms )
+        KBASE.deposit_extra( mcs_id, "num_light_atoms", num_light_atoms )
+
+        return similarity.exp_delta( 2 * (orig_num_heavy_atoms - num_heavy_atoms), 0 )
 
 
 

@@ -13,6 +13,13 @@ import math
 
 
 
+def exp_delta( delta_num_heavy_atom, delta_num_hydrogen ) :
+    BETA   = 0.1
+    energy = delta_num_heavy_atom + 0.25 * delta_num_hydrogen
+    return math.exp( -BETA * energy )
+
+    
+
 def by_atom_count( mol0, mol1, mcs ) :
     """
     This function determines the similarity score by counting the number of extra atoms between two molecules. In the scenario
@@ -34,9 +41,7 @@ def by_atom_count( mol0, mol1, mcs ) :
     delta_total_num_atom = len( mol0.atom          ) + len( mol1.atom          ) - 2 * len( mcs.atom          )
     delta_num_heavy_atom = len( mol0.heavy_atoms() ) + len( mol1.heavy_atoms() ) - 2 * len( mcs.heavy_atoms() )
     delta_num_hydrogen   = delta_total_num_atom - delta_num_heavy_atom
-    BETA                 = 0.4
-    energy               = delta_num_heavy_atom + 0.25 * delta_num_hydrogen
-    return math.exp( -BETA * energy )
+    return exp_delta( delta_num_heavy_atom, delta_num_hydrogen )
 
 
 
@@ -45,12 +50,10 @@ def by_heavy_atom_count( mol0, mol1, mcs ) :
     Similar to C{by_atom_count} except that we only consider heavy atoms here
     """
     delta_num_heavy_atom = len( mol0.heavy_atoms() ) + len( mol1.heavy_atoms() ) - 2 * len( mcs.heavy_atoms() )
-    BETA                 = 0.4
-    energy               = delta_num_heavy_atom
-    return math.exp( -BETA * energy )
-    
+    return exp_delta( delta_num_heavy_atom, 0 )
+
 
 
 if ("__main__" == __name__) :
     for i in range( 100 ) :
-        print i, math.exp( -0.4 * i )
+        print i, math.exp( -0.1 * i )
