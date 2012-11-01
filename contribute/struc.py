@@ -372,7 +372,7 @@ try :
                     return num_heavy_in_y - num_heavy_in_x
                 return num_y - num_x
             
-            ret.sort( cmp = lambda x, y : len( y ) - len( x ) )
+            ret.sort( cmp = cmp_mol )
             return ret
         
         
