@@ -14,7 +14,7 @@ class ImgGenerator:
         return self._supported_formats.keys()
 
         
-    def generate(self, smiles, image, format=None, callback=None):
+    def generate(self, smiles, image, format=None):
         """
         Generating 2D image file from SMILES string
         @type smiles: string
@@ -37,7 +37,7 @@ class ImgGenerator:
             raise RuntimeError("format (%s) is not supported"%format)
         
         image_generator = self._supported_formats[format]
-        image_generator(smiles, image, callback=callback)
+        image_generator(smiles, image)
         
     def register(self, format, generator):
         self._supported_formats[format] = generator
