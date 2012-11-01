@@ -14,7 +14,6 @@ import os
 import sys
 import hashlib
 import networkx
-import matplotlib.pyplot as plt
 import pickle
 import logging
 
@@ -73,10 +72,6 @@ def main( molid_list, opt ) :
         for t in titles :
             logging.debug( "DEBUG:  %s" % t )
  
-   #l = networkx.spring_layout( g, iterations = 256, weight = "similarity", scale = 10 )
-   #networkx.draw_networkx( g, pos = l, with_labels = False )
-   #plt.savefig( opt.output + ".png" )
-
     pkl_fname = opt.output + ".pkl"
     pkl_fh    = open( pkl_fname, "w" )
     pickle.dump( g, pkl_fh )
