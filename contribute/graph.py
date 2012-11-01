@@ -104,10 +104,10 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = basic_rule.similarity( id0, id1, mcs_id = id )
-        print simi
         KBASE.deposit_extra( id, "similarity", simi )
         all_ids.add( id0 )
         all_ids.add( id1 )
+        logging.debug( "DEBUG: %f" % simi )
         
     basic_graph.add_nodes_from( all_ids )
 

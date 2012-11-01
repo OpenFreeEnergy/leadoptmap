@@ -52,13 +52,7 @@ def main( molid_list, opt ) :
     logging.info( "MCS searching..." )
     mcs_ids    = mcs_engine.search_all( mols )
     basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
-
     logging.info( "MCS searching... Done" )
-    if (logger.getEffectiveLevel() == logging.DEBUG) :
-        for id in mcs_ids :
-            mol_id = mcs.get_parent_ids( id )
-            logging.debug( "%.3f %s" % (basic_rule.similarity( mol_id[0], mol_id[1], mcs_id = id ),
-                                        KBASE.ask( id )[0].title(),) )
 
     # Gets graph (`g') and clusters (`c').
     logging.info( "Creating graph..." )
@@ -70,14 +64,14 @@ def main( molid_list, opt ) :
     graph.annotate_edges_with_matches( g )
     logging.info( "Creating graph... Done" )
     
-    logging.debug( "%d clusters (counted as the connected components in the graph):" % len( c ) )
+    logging.debug( "DEBUG: %d clusters (counted as the connected components in the graph):" % len( c ) )
     c.sort( lambda x, y : len( x ) - len( y ) )
     for i, e in enumerate( c ) :
-        logging.debug( "cluster #%d, %d structures:" % (i, len( e ),) )
+        logging.debug( "DEBUG: cluster #%d, %d structures:" % (i, len( e ),) )
         titles = [KBASE.ask( id ).title() for id in e]
         titles.sort()
         for t in titles :
-            logging.debug( "  %s" % t )
+            logging.debug( "DEBUG:  %s" % t )
  
    #l = networkx.spring_layout( g, iterations = 256, weight = "similarity", scale = 10 )
    #networkx.draw_networkx( g, pos = l, with_labels = False )
@@ -139,10 +133,10 @@ def main( molid_list, opt ) :
                     dfm.write_fepsubst_to_file( data, out_fname )
                 except (RuntimeError, NameError,) :
                     logging.warn( "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,) )
-
-    tmp_fnames = glob.glob( mcs.tempfile_basename + "*" )
-    for fname in tmp_fnames :
-        os.remove( fname )
+    if (not opt.save) :
+        tmp_fnames = glob.glob( mcs.tempfile_basename + "*" )
+        for fname in tmp_fnames :
+            os.remove( fname )
         
 
 
@@ -153,6 +147,9 @@ def startup() :
     from optparse import OptionParser
 
     parser = OptionParser( usage = "Usage: %prog [options] <structure-file-dir | structure-file>...", version = "%prog v0.2" )
+    parser.add_option( "-m", "--mcs", metavar = "FILE",
+                       help = "read MCS searching results directly from FILE and avoid searching again. " \
+                              "FILE should be a Schrodinger canvasMCS output file in the CSV format." )
     parser.add_option( "-o", "--output", metavar = "BASENAME", default = "simimap",
                        help = "output files' base name. The following files will be written: <basename>.dot, and "
                        "<basename>.pkl." )
@@ -161,13 +158,19 @@ def startup() :
                        "for FEP simulations will be written out." )
     parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
                        help = "simulation input file type [mae | gro]" )
-
+    parser.add_option( "--save",  default = False, action = "store_true", help = "do not delete temporary files." )
+    parser.add_option( "--debug", default = False, action = "store_true", help = "turn on debugging mode." )
+    
     (opt, args) = parser.parse_args()
 
     if (len( args ) == 0) :
         parser.print_help()
         sys.exit( 0 )
 
+    if (opt.debug) :
+        logger.setLevel( logging.DEBUG )
+        logging.debug( "Debugging mode is on." )
+        
     molid_list = []
     for a in args :
         logging.info( "Reading structures from '%s'..." % a )
