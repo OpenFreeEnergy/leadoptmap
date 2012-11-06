@@ -26,7 +26,7 @@ html_template=\
     <link href="docs/assets/css/bootstrap.css" rel="stylesheet">
     <link href="docs/assets/css/docs.css" rel="stylesheet">
     <link href="docs/assets/js/google-code-prettify/prettify.css" rel="stylesheet">
-
+    <link href="docs/assets/css/tablesorter.css" rel="stylesheet">
     <!-- CSS just for the tests page -->
     <!-- <link href="less/tests/css-tests.css" rel="stylesheet"> -->
 
@@ -34,6 +34,7 @@ html_template=\
     <script type="text/javascript" src="js/dracula_graph.js"></script>
     <script type="text/javascript" src="js/sprintf-0.6.js"></script>
     <script type="text/javascript" src="js/leadoptmap.js"></script>
+    <script type="text/javascript" src="js/jquery.tablesorter.js"></script>
 
 </head>
 <body>
@@ -57,7 +58,7 @@ html_template=\
 
 <div class="row">
     <h2>Mutation Pair and Maximum Common Substructure</h2>
-    <table id="mt"  class="table table-bordered">
+    <table id="mt"  class="table table-bordered tablesorter">
         <colgroup id="mt_colorgroup">
             <col class="col1">
             <col class="col2">

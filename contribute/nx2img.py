@@ -271,7 +271,11 @@ class DotRender:
             mol3d = canvas2d.convertChmMoltoSWIG(mol2d)
             return evaluate_smarts_canvas(mol3d, smarts, start_index=0)            
 
-        def smarts2smiles(smarts, parent_smiles) :     
+        def smarts2smiles(smarts, parent_smiles) :  
+            """
+            A function to search SMARTS in a molecule and return SMILES
+            for the matched fragment.
+            """
             mol = structure.SmilesStructure(parent_smiles).getDistortedStructure() 
             atom_list = evaluate_smarts_canvas(mol, smarts)
             if len(atom_list) > 0:
@@ -279,38 +283,47 @@ class DotRender:
                 smiles = generate_smiles(substruc)  
             else:
                 print "smarts(%s) can not match parent_smiles(%s)"%(smarts, parent_smiles)
-                smiles = smarts
+                smiles = to_smiles(smarts)
             return smiles
             
-        #def smarts2smiles(smarts, useless):
-            #def convert(s):
-                #return s.split('-')[0]
+        def to_smiles(smarts):
+            """
+            A function to convert smarts to smiles. This function should not be
+            used unless the most rigorous one, smarts2smiles fails to produce
+            correct smiles.
+            """
+            def convert(s):
+                return s.split('-')[0]
                 
-            #smiles = []
-            #i = 0
-            #start = i
-            #mode = 0
-            #while (i < len(smarts)):
+            smiles = []
+            i = 0
+            start = i
+            mode = 0
+            while (i < len(smarts)):
 
-                #if mode == 0:
-                    #if smarts[i] == '[':
-                        #mode = 1
-                        #start = i
-                    #elif smarts[i] == ']':
-                        #mode = 0
-                        #smiles.append(convert(smarts[i+1, i]))                    
-                    #else:
-                        #smiles.append(smarts[i])
-                    #i += 1
-                #else:
-                    #i += 1
+                if smarts[i] == '[':
+                    if mode == 1:
+                        print "invalid smarts:%s"%smarts
+                        return ""
+                    mode = 1
+                    start = i
+                elif smarts[i] == ']':
+                    if mode == 0:
+                        print "invalid smarts:%s"%smarts
+                        return ""
+                    mode = 0
+                    elem = convert(smarts[start+1:i])
+                    smiles.append(elem)                    
+                elif mode == 0:
+                    smiles.append(smarts[i])
+                i += 1
             
-            #return ''.join(smiles)
+            return ''.join(smiles)
                     
                    
 
         def align_fragment(frag_smarts, mol, mol_smiles):
-            #print frag_smarts
+            
             smiles = smarts2smiles(frag_smarts, mol_smiles)
             mcs_frag = smiles2mol(smiles)
             
