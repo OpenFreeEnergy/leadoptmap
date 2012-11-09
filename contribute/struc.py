@@ -366,7 +366,7 @@ try :
                 num_x = len( x )
                 num_y = len( y )
                 if (num_y == num_x) :
-                    heavy_atoms    = set( self._struc.heavy_atoms() )
+                    heavy_atoms    = set( self.heavy_atoms() )
                     num_heavy_in_x = len( set( x ) - heavy_atoms )
                     num_heavy_in_y = len( set( y ) - heavy_atoms )
                     return num_heavy_in_y - num_heavy_in_x
