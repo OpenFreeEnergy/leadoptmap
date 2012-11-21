@@ -154,9 +154,9 @@ Note that, the coordinates in these two files must match each other.
 
 """)
     parser.add_argument('input', action='store',
-                       help='maestro file')
+                       help='svg file')
     parser.add_argument('output', action='store',
-                       help='maestro file')
+                       help='html file')
     parser.add_argument('-c', '--combine', dest='combine', action='store_true',
                        default=False, help='combine various svg files into html')
     
@@ -264,5 +264,7 @@ Note that, the coordinates in these two files must match each other.
     if args.target:
         import shutil
         target = os.path.join(args.target, 'img')
+        if not os.path.exists(target):
+            os.mkdir(target)
         for img in all_images:
             shutil.copy(img, target)

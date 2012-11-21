@@ -130,7 +130,7 @@ class DotRender:
             mol = self._G.node[node_id][STRUCT]
             img_generator.mol2svg(mol, img_fname)
         else:
-            self._img_generator.generate(attr, img_fname)
+            self._img_generator.generate(smiles, img_fname)
     
     def _renderEdgeStructure(self, source, dest, attr_name, 
                              source_img_fname, dest_img_fname):
