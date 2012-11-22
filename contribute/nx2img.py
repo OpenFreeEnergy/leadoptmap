@@ -341,6 +341,17 @@ class DotRender:
                 pass
 
             return mcs_frag
+        
+        def get_aligned_fragment(frag_smarts, mol, mol_smiles, default_smiles):
+            try:
+                frag = align_fragment(frag_smarts, mol, mol_smiles)
+            except Exception:
+                print "failed to align fragment (SMARTS=%s, SMILES=%s)"\
+                      %(frag_smarts, mol_smiles)
+                print "used %s as fragment MCS"%default_smiles
+                frag = smiles2mol(default_smiles)
+            
+            return frag
 
         aligned = set()
         
@@ -389,7 +400,10 @@ class DotRender:
                     node1[STRUCT] = smiles2mol(node1['SMILES'])
                 if STRUCT not in node2:
                     node2[STRUCT] = smiles2mol(node2['SMILES'])         
-                    
+                #if node1['title'] in ['p38a_2s', 'p38a_2r'] and \
+                #   node2['title'] in ['p38a_2s', 'p38a_2r']:
+                print "align (%s, %s)"%(node1['title'], node2['title'])
+                
                 mol1 = node1[STRUCT]
                 mol2 = node2[STRUCT] 
                 edge_data = self._G.get_edge_data(node1_id, node2_id)
@@ -451,8 +465,11 @@ class DotRender:
                 
                 # align mcs fragment            
                 self._G.edge[node1_id][node2_id][ORIGINAL_MCS_FRAG] = {}
-                frag1 = align_fragment(mcs1, mol1, node1['SMILES'])
-                frag2 = align_fragment(mcs2, mol2, node2['SMILES'])
+                edge_frag_smiles = edge_data['SMILES']
+                frag1 = get_aligned_fragment(mcs1, mol1, 
+                                             node1['SMILES'], edge_frag_smiles)
+                frag2 = get_aligned_fragment(mcs2, mol2, 
+                                             node2['SMILES'], edge_frag_smiles)
                 self._G.edge[node1_id][node2_id][ORIGINAL_MCS_FRAG][node1_id] = frag1
                 self._G.edge[node1_id][node2_id][ORIGINAL_MCS_FRAG][node2_id] = frag2
                 
@@ -463,8 +480,13 @@ class DotRender:
                     trimmed_mcs1 = edge_data['trimmed-mcs'][node1_id]
                     trimmed_mcs2 = edge_data['trimmed-mcs'][node2_id]                
                     self._G.edge[node1_id][node2_id][TRIMMED_MCS_FRAG] = {}
-                    frag1 = align_fragment(trimmed_mcs1, mol1, node1['SMILES'])
-                    frag2 = align_fragment(trimmed_mcs2, mol2, node2['SMILES'])    
+                    # FIXME handle smiles error 
+                    #frag1 = align_fragment(trimmed_mcs1, mol1, node1['SMILES'])
+                    #frag2 = align_fragment(trimmed_mcs2, mol2, node2['SMILES']) 
+                    frag1 = get_aligned_fragment(trimmed_mcs1, mol1, 
+                                                 node1['SMILES'], edge_frag_smiles)
+                    frag2 = get_aligned_fragment(trimmed_mcs2, mol2, 
+                                                 node2['SMILES'], edge_frag_smiles)                      
                     self._G.edge[node1_id][node2_id][TRIMMED_MCS_FRAG][node1_id] = frag1
                     self._G.edge[node1_id][node2_id][TRIMMED_MCS_FRAG][node2_id] = frag2      
                 except KeyError, e:

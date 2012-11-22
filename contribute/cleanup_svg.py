@@ -239,20 +239,25 @@ Note that, the coordinates in these two files must match each other.
             tokens = basename.split('_')
             if len(tokens) > 2:
                 mcs_type = tokens[-1]
-                node_id = tokens[-2]
-                if not node_id.startswith('node'):
-                    raise Exception("invalid node_id:%s"%node_id)
-            
-            if args.combine:
-                attrs = {'class':'svg',
-                         'node_id':node_id
-                        }                
-                replace_svg(m, image, attrs)
-            else:
-                image.attrib[HREF] = 'img/'+href
-                image.attrib['mcs_type'] = mcs_type
-                image.attrib['node_id'] =node_id
+                elem_id = tokens[-2]
                 
+                
+                if elem_id.startswith('node'):
+                    # handle original mcs and trimmed mcs
+                    if args.combine:
+                        attrs = {'class':'svg',
+                                 'node_id':elem_id
+                                }                
+                        replace_svg(m, image, attrs)
+                    else:
+                        image.attrib[HREF] = 'img/'+href
+                        image.attrib['mcs_type'] = mcs_type
+                        image.attrib['node_id'] =elem_id
+                elif elem_id.startswith('edge'):
+                    #handle edge
+                    image.attrib[HREF] = 'img/'+href
+                else:
+                    raise RuntimeError("invalid id:%s"%elem_id)
     
     if args.target:
         output_fname = os.path.join(args.target, os.path.basename(output_fname))
