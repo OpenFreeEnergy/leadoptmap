@@ -25,20 +25,20 @@ def create( basic_graph, mcs_ids, rule, add_attr = True ) :
     @param mcs_ids : A list of common substructures' IDs
     @type  rule    : C{Rule}
     @param rule    : The rule to determine the similarity score between two structures
-    @type  use_name: C{bool}
-    @param use_name: If true, node of the graph is molecule's name; otherwise, it is the molecule's ID.
     """
     g = copy.deepcopy( basic_graph )
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = rule.similarity( id0, id1, mcs_id = id )
-        if (simi > 0 and add_attr) :
-            try :
-                partial_ring = int( KBASE.ask( id, "partial_ring" ) )
-            except LookupError :
-                partial_ring = 0
-            g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring, mcs_id = id )
-
+        if (simi > 0) :
+            if (add_attr) :
+                try :
+                    partial_ring = int( KBASE.ask( id, "partial_ring" ) )
+                except LookupError :
+                    partial_ring = 0
+                g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring, mcs_id = id )
+            else :
+                g.add_edge( id0, id1, similarity = simi )
     return g
 
 
@@ -53,22 +53,38 @@ def cmp_edge( g, x, y ) :
 
 
 
-def break_cluster( g, cluster, orig_cutoff, max_csize, num_c2c ) :
+def break_cluster( cluster, orig_cutoff, max_csize ) :
     """
-
+    @type      cluster: C{list} of C{str}
+    @param     cluster: A list of nodes of a cluster
+    @type  orig_cutoff: C{float}
+    @param orig_cutoff: Original cutoff of similarity scores
+    @type    max_csize: C{int}
+    @param   max_csize: Maximum cluster size
     """
     basic_subgraph = networkx.Graph()
     basic_subgraph.add_nodes_from( cluster )
 
+    # Figures out the number of heavy atoms corresponding to the original cutoff value.
+    # This code asssumes the similarity scoring function is `similarity.exp_delta'.
     num_heavy = 0
     while (similarity.exp_delta( num_heavy, 0 ) <= orig_cutoff) :
         num_heavy += 1
 
+    # Decomposes the original cluster into smaller subclusters.
     cutoff      = similarity.exp_delta( num_heavy, 0 )
     simirule    = rule.Cutoff( cutoff )
-    subgraph    = create_graph( basic_subgraph, cluster, simirule, False )
-    subclusters = sorted( networkx.connected_components( subgraph ), cmp = lambda x, y : len( x ) - len( y ) )
+    subgraph    = create( basic_subgraph, cluster, simirule, False )
+    rawclusters = networkx.connected_components( subgraph )
+    newclusters = []
+    for c in rawclusters :
+        if (len( c ) > max_csize) :
+            newclusters += break_cluster( c, cutoff, max_csize )
+        else :
+            newclusters.append( c )
+    newclusters = sorted( newclusters, cmp = lambda x, y : len( x ) - len( y ) )
 
+    # Reclusterizes the subclusters.
     
 
 def trim_cluster( g, cluster, num_edges ) :
@@ -161,8 +177,8 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     complete = create( basic_graph, mcs_ids, rule.Cutoff( 1           ) )
     desired  = create( basic_graph, mcs_ids, rule.Cutoff( simi_cutoff ) )
     clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
-    largest  = clusters[-1]
-
+    largest  = clusters[-1]   
+    
     # Does a binary search for an increased cutoff if the largest cluster is too big.
     if (max_csize < len( largest )) :
         high     = 1
@@ -188,10 +204,10 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
             desired  = create( basic_graph, mcs_ids, rule.Cutoff( trial ) )
             clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
             largest  = clusters[-1]
-            
 
     # Trims clusters.
     for e in clusters :
+        # FIXME: Replcaes `trim_cluster' with `optimize_subgraph' when the latter is ready.
         trim_cluster( desired, e, 2 )
 
     n = len( clusters )
