@@ -1,12 +1,13 @@
 """Functions and classes for creating a graph data structure of molecules
 """
  
-
+'''
 from kbase import KBASE
 
 import struc
 import rule
 import mcs
+'''
 
 import copy
 import os
@@ -319,4 +320,10 @@ def annotate_edges_with_hexcode( g ) :
 
 
 if ("__main__" == __name__) :
-    pass
+    import pickle
+
+    fh0 = open( "sampl3_complete.pkl" )
+    fh1 = open( "sampl3_desired.pkl"  )
+    complete = pickle.load( fh0 )
+    desired  = pickle.load( fh1 )
+    optimize_subgraph( complete, desired )
