@@ -9,6 +9,7 @@ import struc
 import os
 import subprocess
 import hashlib
+import logging
 import tempfile
 
 
@@ -164,7 +165,7 @@ try :
             
         
 
-        def search_all( self, mols ) :
+        def search_all( self, mols, opt ) :
             """
             N.B.: O(N^2). Needs optimization.
             """
@@ -251,40 +252,44 @@ try :
 
 
 
-        def search_all( self, mols ) :
-            mae_fname = tempfile_basename + ".mae"
-            out_fname = tempfile_basename + ".csv"
-            log_fname = tempfile_basename + ".log"
-            log_fh    = open( log_fname, "w" )
+        def search_all( self, mols, opt ) :
+            if (not opt.mcs) :
+                mae_fname = tempfile_basename + ".mae"
+                out_fname = tempfile_basename + ".csv"
+                log_fname = tempfile_basename + ".log"
+                log_fh    = open( log_fname, "w" )
 
-            if (os.path.isfile( mae_fname )) :
-                os.remove( mae_fname )
+                if (os.path.isfile( mae_fname )) :
+                    os.remove( mae_fname )
 
-            for mol in mols :
-                title = mol.title()
-                mol.set_title( mol.id() )
-                mol.write( mae_fname )
-                mol.set_title( title )
-                
-            cmd          = [self._cmd,
-                            "-imae",     mae_fname,
-                            "-opw",      out_fname,
-                            "-atomtype", str( self._typing ),
-                            "-nobreakring",
-                            ]
-            mcs_proc     = subprocess.Popen( cmd, stderr = subprocess.STDOUT, stdout = log_fh )
-            null, stderr = mcs_proc.communicate()
-            val          = mcs_proc.returncode
+                for mol in mols :
+                    title = mol.title()
+                    mol.set_title( mol.id() )
+                    mol.write( mae_fname )
+                    mol.set_title( title )
+                    
+                cmd          = [self._cmd,
+                                "-imae",     mae_fname,
+                                "-opw",      out_fname,
+                                "-atomtype", str( self._typing ),
+                                "-nobreakring",
+                                ]
+                mcs_proc     = subprocess.Popen( cmd, stderr = subprocess.STDOUT, stdout = log_fh )
+                null, stderr = mcs_proc.communicate()
+                val          = mcs_proc.returncode
 
-            if (val == 17) :
-                raise RuntimeError( "Used a MCS feature that requires Schrodinger's CANVAS_ELEMENTS license." )
-            if (val != 0 ) :
-                msg = "CanvasMCS exited prematurely. This could be because the input molecules were too dissimilar" \
-                      " or too numerous, or because the chosen atom-typing scheme was too general."
-                with open( out_fname ) as fh:
-                    msg += "\n\n"
-                    msg += fh.read()
-                raise RuntimeError( msg )
+                if (val == 17) :
+                    raise RuntimeError( "Used a MCS feature that requires Schrodinger's CANVAS_ELEMENTS license." )
+                if (val != 0 ) :
+                    msg = "CanvasMCS exited prematurely. This could be because the input molecules were too dissimilar" \
+                          " or too numerous, or because the chosen atom-typing scheme was too general."
+                    with open( out_fname ) as fh:
+                        msg += "\n\n"
+                        msg += fh.read()
+                    raise RuntimeError( msg )
+            else :
+                logging.debug( "DEBUG: Reuse previous MCS searching results: '%s'." % opt.mcs )
+                out_fname = opt.mcs
             
             with open( out_fname, "r" ) as fh :
                 import csv
