@@ -42,14 +42,14 @@ def main( molid_list, opt ) :
     @param molid_list: A list of molecule IDs in the C{KBASE}
     """
     mols = []
-    for id in molid_list :
+    for id in molid_list[opt.receptor:] :
         mols.append( KBASE.ask( id ) )
 
     if   (struc.infrastructure == "schrodinger") : mcs_engine = mcs.SchrodMcs( 1 )
     elif (struc.infrastructure == "oechem"     ) : mcs_engine = mcs.OeMcs()
 
     logging.info( "MCS searching..." )
-    mcs_ids    = mcs_engine.search_all( mols )
+    mcs_ids    = mcs_engine.search_all( mols, opt )
     basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
     logging.info( "MCS searching... Done" )
 
@@ -113,19 +113,33 @@ def main( molid_list, opt ) :
             import schrodinger.application.desmond.fep_mapping as dfm
 
             tmp_mae_fname = mcs.tempfile_basename + "_siminp.mae"
+            receptor_mol  = []
+            
+            if (opt.receptor) :
+                for e in range( opt.receptor ) :
+                    mol = KBASE.ask( molid_list[e] )
+                    mol._struc.property["s_leadoptmap_moltype"] = "receptor"
+                    receptor_mol.append( mol )
+                    
             for id0, id1, attr in edges :
                 mol0      = KBASE.ask( id0 )
                 mol1      = KBASE.ask( id1 )
                 out_fname = "%s_%s_%s.mae" % (opt.siminp, id0[:7], id1[:7],)
-                mol0._struc.property["s_fepmap_fragname"] = "none"
-                mol1._struc.property["s_fepmap_fragname"] = "%s:%s" % (mol0.title(), mol1.title(),)
-                # mol0.write( out_fname, mode = "w" )
-                # mol1.write( out_fname, mode = "a" )
+                mol0._struc.property["s_leadoptmap_moltype"] = "ligand"
+                mol1._struc.property["s_leadoptmap_moltype"] = "%s:%s" % (id0, id1,)
+
                 mol0.write( tmp_mae_fname, mode = "w" )
                 mol1.write( tmp_mae_fname, mode = "a" )
+                
                 try :
-                    data = dfm.get_atom_mapping_data( tmp_mae_fname, atomtype = 3 )
-                    dfm.write_fepsubst_to_file( data, out_fname )
+                    overwrite = True
+                    data      = dfm.get_atom_mapping_data( tmp_mae_fname, atomtype = 3 )
+                    if (opt.receptor) :
+                        overwrite = False
+                        receptor_mol[0].write( out_fname, mode = "w" )
+                        for i in range( 1, opt.receptor ) :
+                            receptor_mol[i].write( out_fname, mode = "a" )
+                    dfm.write_fepsubst_to_file( data, out_fname, overwrite = overwrite )
                 except (RuntimeError, NameError,) :
                     logging.warn( "WARNING: Failed to write the input files for '%s' and '%s'." % (mol0, mol1,) )
     if (not opt.save) :
@@ -153,6 +167,9 @@ def startup() :
                        "for FEP simulations will be written out." )
     parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
                        help = "simulation input file type [mae | gro]" )
+    parser.add_option( "-r", "--receptor", default = 0, metavar = "N", type = "int",
+                       help = "specify the initial N structures as the common receptor. This option is needed when "
+                       "you want to write out structure input files for relative binding free energy calculations." )
     parser.add_option( "--save",  default = False, action = "store_true", help = "do not delete temporary files." )
     parser.add_option( "--debug", default = False, action = "store_true", help = "turn on debugging mode." )
     
