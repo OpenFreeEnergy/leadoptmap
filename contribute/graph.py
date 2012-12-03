@@ -1,6 +1,6 @@
 """Functions and classes for creating a graph data structure of molecules
 """
-
+ 
 
 from kbase import KBASE
 
