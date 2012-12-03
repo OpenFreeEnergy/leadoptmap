@@ -17,7 +17,7 @@ import logging
 
 
 
-def create( basic_graph, mcs_ids, rule ) :
+def create( basic_graph, mcs_ids, rule, add_attr = True ) :
     """
     Returns a graph. Node = molecule's ID or name, edge = similarity score
     
@@ -32,7 +32,7 @@ def create( basic_graph, mcs_ids, rule ) :
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = rule.similarity( id0, id1, mcs_id = id )
-        if (simi > 0) :
+        if (simi > 0 and add_attr) :
             try :
                 partial_ring = int( KBASE.ask( id, "partial_ring" ) )
             except LookupError :
@@ -52,6 +52,24 @@ def cmp_edge( g, x, y ) :
     return sign( g[x[0]][x[1]]["similarity"] - g[y[0]][y[1]]["similarity"] )
 
 
+
+def break_cluster( g, cluster, orig_cutoff, max_csize, num_c2c ) :
+    """
+
+    """
+    basic_subgraph = networkx.Graph()
+    basic_subgraph.add_nodes_from( cluster )
+
+    num_heavy = 0
+    while (similarity.exp_delta( num_heavy, 0 ) <= orig_cutoff) :
+        num_heavy += 1
+
+    cutoff      = similarity.exp_delta( num_heavy, 0 )
+    simirule    = rule.Cutoff( cutoff )
+    subgraph    = create_graph( basic_subgraph, cluster, simirule, False )
+    subclusters = sorted( networkx.connected_components( subgraph ), cmp = lambda x, y : len( x ) - len( y ) )
+
+    
 
 def trim_cluster( g, cluster, num_edges ) :
     """
@@ -82,6 +100,32 @@ def trim_cluster( g, cluster, num_edges ) :
     g.remove_edges_from( del_edges )
     return g
 
+
+
+def optimize_subgraph( complete, desired ) :
+    """
+    Optimize a given subgraph to minimize its number of edges. Constraints, such as the "maximum distance" and "circular
+    connections", must be satisfied.
+
+    The two arguments: C{complete} and C{desired} are two graphs. Their edges have an attribute called "similarity", whose
+    value is the similarity score that we have calculated based on various rules. The score is a floating number within the
+    range of [0.0, 1.0]. The greater the score is, the more similar the two compounds are, and in principle the more likely
+    the two nodes should be connected.
+
+    C{desired} was created from C{complete} (see below within this docstring), and it has much less number of edges, but they
+    still are too many. So the main purpose of this function is to further minimize the C{desired} graph. The optimization
+    might not really need C{complete}, but we pass it on just in case we need extra scores that happened to be cut off.
+    
+    @type  complete: C{networkx.Graph}
+    @param complete: A graph where almost any pair of two nodes are connected.
+    @type   desired: C{networkx.Graph}
+    @param  desired: This graph is created from the C{complete} graph in the following way: First we do cutoff on all
+                     similarity scores (meaning that if a score is less than a threshold value it will be set to zero,
+                     otherwise it will be kept as is), then we delete edges with zero scores.
+    @return: A optimized subgraph
+    """
+    pass
+
     
 
 def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
@@ -101,16 +145,19 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     """
     basic_graph = networkx.Graph()
     all_ids     = set()
+    fh          = open( "simiscore", "w" ) if (logging.getLogger().getEffectiveLevel() == logging.DEBUG) else None
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = basic_rule.similarity( id0, id1, mcs_id = id )
         KBASE.deposit_extra( id, "similarity", simi )
         all_ids.add( id0 )
         all_ids.add( id1 )
-        logging.debug( "DEBUG: %f" % simi )
+        if (fh) :
+            print >> fh, simi
         
     basic_graph.add_nodes_from( all_ids )
 
+    # FIXME: Will it be faster to create the `desired' from the `complete'?
     complete = create( basic_graph, mcs_ids, rule.Cutoff( 1           ) )
     desired  = create( basic_graph, mcs_ids, rule.Cutoff( simi_cutoff ) )
     clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
@@ -137,6 +184,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
                 mid   = trial
             else :
                 break
+            # FIXME: Will it be faster to create the `desired' from the `complete'?
             desired  = create( basic_graph, mcs_ids, rule.Cutoff( trial ) )
             clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
             largest  = clusters[-1]
@@ -251,3 +299,8 @@ def annotate_edges_with_hexcode( g ) :
     """
     for e in g.edges() :
         g[e[0]][e[1]]["label"] = "%s-%s" % (e[0][:7], e[1][:7],)
+
+
+
+if ("__main__" == __name__) :
+    pass
