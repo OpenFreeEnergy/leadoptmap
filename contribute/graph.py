@@ -296,14 +296,6 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     for i, c in enumerate( clusters ) :
         logging.info( "    size of cluster #%02d: %d" % (i, len( c ),) )
 
-    import pickle
-    fh = open( "complete_trypsin.pkl", "w" )
-    pickle.dump( complete.subgraph( clusters[0] ), fh )
-    fh.close()
-    fh = open( "desired_trypsin.pkl", "w" )
-    pickle.dump( desired.subgraph( clusters[0] ), fh )
-    fh.close()
-
     # Optimizes the subgraphs.
     for e in clusters :
         # FIXME: Replcaes `trim_cluster' with `optimize_subgraph' when the latter is ready.
