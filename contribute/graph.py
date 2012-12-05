@@ -279,7 +279,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         logging.info( "    size of cluster #%02d: %d" % (i, len( c ) ),)
         num_big_clusters += (len( c ) > max_csize)
 
-    if (num_big_clusters) :
+    if (num_big_clusters and False) :
         logging.info( "  %d cluster(s) are too big. Break them into smaller ones. Reclustering..." % num_big_clusters )
         new_clusters = []
         for c in clusters :
