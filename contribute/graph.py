@@ -1,13 +1,12 @@
 """Functions and classes for creating a graph data structure of molecules
 """
  
-'''
 from kbase import KBASE
 
 import struc
 import rule
 import mcs
-'''
+import similarity
 
 import copy
 import os
@@ -54,46 +53,140 @@ def cmp_edge( g, x, y ) :
 
 
 
-def break_cluster( cluster, orig_cutoff, max_csize ) :
+def cutoff_graph( g, simi_cutoff ) :
     """
-    @type      cluster: C{list} of C{str}
-    @param     cluster: A list of nodes of a cluster
+    Generates a new graph by cutting off the similarity scores.
+
+    @type            g: C{networkx.Graph}
+    @param           g: Original graph
+    @type  simi_cutoff: C{float}
+    @param simi_cutoff: Similarity cutoff
+    
+    @return: A new graph
+    """
+    g = copy.deepcopy( g )
+    edges_to_be_deleted = []
+    for e in g.edges() :
+        if (g[e[0]][e[1]]["similarity"] < simi_cutoff) :
+            edges_to_be_deleted.append( e )
+    g.remove_edges_from( edges_to_be_deleted )
+    return g
+
+    
+
+def calc_cohesion( g, sg0, sg1, max_csize ) :
+    """
+    Cohesion score is defined as the sum of similarity scores of all boundary edges between two subgraphs.
+    But if the sum of number of nodes of the two subgraphs is greater than C{max_csize}, the score is zero.
+
+    @type          g: C{networkx.Graph}
+    @param         g: Original graph
+    @type        sg0: C{networkx.Graph}
+    @param       sg0: First subgraph
+    @type        sg1: C{networkx.Graph}
+    @param       sg1: Second subgraph
+    @type  max_csize: C{float}
+    @param max_csize: Maximum size of a cluster
+    
+    @return: Cohesion score between the two subgraphs.
+    """
+    score = 0.0
+    n0    = len( sg0 )
+    n1    = len( sg1 )
+    if (n0 + n1 <= max_csize) :
+        boundary_edges = networkx.edge_boundary( g, sg0, sg1 )
+        for e in boundary_edges :
+            score += g[e[0]][e[1]]["similarity"]
+    return score / max( n0, n1 )
+
+
+
+def recluster( g, clusters, max_csize ) :
+    """
+    Regroups a list of clusters.
+    
+    @type          g: C{networkx.Graph}
+    @param         g: The graph
+    @type   clusters: C{list} of C{str}
+    @param  clusters: A list of clusters to be collapsed
+    @type  max_csize: C{int}
+    @param max_csize: Maximum cluster size
+
+    @return: A list of clusters.
+    """
+    while (len( clusters ) > 1) :
+        # Step 1: Calculates the cohesion scores for all pairs of clusters.
+        clusters = sorted( clusters, cmp = lambda x, y : len( x ) - len( y ) )
+        cohesion = []   # Element = (cluster-index pair, score)
+        n        = len( clusters )
+        for i in range( n - 1 ) :
+            for j in range( i + 1, n ) :
+                cohesion_score = calc_cohesion( g, clusters[i], clusters[j], max_csize )
+                if (cohesion_score > 0) :
+                    cohesion.append( (i, j, cohesion_score,) )
+
+        if (not cohesion) :
+            break
+                
+        # Step 2: Finds the smallest cluster with the highest cohesion score. We can do this by sorting `cohesion' twice:
+        #         (1) descendingly by scores, and then
+        #         (2) ascendingly  by size of the smaller cluster in the pair.
+        # Python's sort algorithm is stable.
+        cohesion = sorted( cohesion, cmp = lambda x, y : sign( y[2] - x[2] ) )
+        cohesion = sorted( cohesion, cmp = lambda x, y :       x[0] - y[0]   )
+
+        # Step 3: Collapses the first pair of clusters in `cohesion'.
+        i = cohesion[0][0]
+        j = cohesion[0][1]
+        collapsed = clusters[i] + clusters[j]
+        del clusters[j]
+        del clusters[i]
+        clusters.append( collapsed )
+        
+    return clusters
+
+
+    
+def break_cluster( subgraph, orig_cutoff, max_csize ) :
+    """
+    @type     subgraph: C{networkx.Graph}
+    @param    subgraph: The subgraph of the cluster to break
     @type  orig_cutoff: C{float}
     @param orig_cutoff: Original cutoff of similarity scores
     @type    max_csize: C{int}
     @param   max_csize: Maximum cluster size
     """
-    basic_subgraph = networkx.Graph()
-    basic_subgraph.add_nodes_from( cluster )
-
     # Figures out the number of heavy atoms corresponding to the original cutoff value.
     # This code asssumes the similarity scoring function is `similarity.exp_delta'.
-    num_heavy = 0
+    num_heavy = 64
     while (similarity.exp_delta( num_heavy, 0 ) <= orig_cutoff) :
-        num_heavy += 1
+        num_heavy -= 1
 
     # Decomposes the original cluster into smaller subclusters.
-    cutoff      = similarity.exp_delta( num_heavy, 0 )
-    simirule    = rule.Cutoff( cutoff )
-    subgraph    = create( basic_subgraph, cluster, simirule, False )
-    rawclusters = networkx.connected_components( subgraph )
-    newclusters = []
-    for c in rawclusters :
+    cutoff       = similarity.exp_delta( num_heavy, 0 )
+    simirule     = rule.Cutoff( cutoff )
+    new_subgraph = cutoff_graph( subgraph, cutoff )
+    raw_clusters = networkx.connected_components( new_subgraph )
+    new_clusters = []
+    for c in raw_clusters :
         if (len( c ) > max_csize) :
-            newclusters += break_cluster( c, cutoff, max_csize )
+            new_clusters += break_cluster( subgraph.subgraph( c ), cutoff, max_csize )
         else :
-            newclusters.append( c )
-    newclusters = sorted( newclusters, cmp = lambda x, y : len( x ) - len( y ) )
+            new_clusters.append( c )
 
-    # Reclusterizes the subclusters.
-    
+    # Reclusters the subclusters.
+    return recluster( subgraph, new_clusters, max_csize )
+
+
 
 def trim_cluster( g, cluster, num_edges ) :
     """
     Reduces number of edges that each node can have.
     
     @type          g: C{networkx.Graph}
-    @param         g: A cluster
+    @param         g: graph
+    @type    cluster: C{list} of {str}
+    @param   cluster: A list of nodes of a cluster
     @type  num_edges: C{int}
     @param num_edges: Number of edges that each node is wanted to have
     """
@@ -163,6 +256,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     basic_graph = networkx.Graph()
     all_ids     = set()
     fh          = open( "simiscore", "w" ) if (logging.getLogger().getEffectiveLevel() == logging.DEBUG) else None
+    logging.info( "  Calculating similarity scores..." )
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = basic_rule.similarity( id0, id1, mcs_id = id )
@@ -171,51 +265,50 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         all_ids.add( id1 )
         if (fh) :
             print >> fh, simi
+    logging.info( "  Calculating similarity scores... Done" )
         
     basic_graph.add_nodes_from( all_ids )
 
-    # FIXME: Will it be faster to create the `desired' from the `complete'?
-    complete = create( basic_graph, mcs_ids, rule.Cutoff( 1           ) )
-    desired  = create( basic_graph, mcs_ids, rule.Cutoff( simi_cutoff ) )
-    clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
-    largest  = clusters[-1]   
-    
-    # Does a binary search for an increased cutoff if the largest cluster is too big.
-    if (max_csize < len( largest )) :
-        high     = 1
-        mid      = simi_cutoff
-        low      = simi_cutoff
-        trial    = 1
-        pretrial = 0
-        while (abs( trial - pretrial ) > 1E-6) :
-            n = len( largest )
-            print n, high, mid, low, trial, pretrial
-            pretrial = trial
-            if (max_csize < n) :
-                trial = 0.5 * (high + mid)
-                low   = mid
-                mid   = trial
-            elif (int( max_csize * 0.95 ) > n) :
-                trial = 0.5 * (mid + low)
-                high  = mid
-                mid   = trial
-            else :
-                break
-            # FIXME: Will it be faster to create the `desired' from the `complete'?
-            desired  = create( basic_graph, mcs_ids, rule.Cutoff( trial ) )
-            clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( x ) - len( y ) )
-            largest  = clusters[-1]
+    complete = create( basic_graph, mcs_ids, rule.Cutoff( 0 ) )
+    desired  = cutoff_graph( complete, simi_cutoff )
+    clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( y ) - len( x ) )
 
-    # Trims clusters.
+    logging.info( "  Original number of clusters: %d" % len( clusters ) )
+    num_big_clusters = 0
+    for i, c in enumerate( clusters ) :
+        logging.info( "    size of cluster #%02d: %d" % (i, len( c ) ),)
+        num_big_clusters += (len( c ) > max_csize)
+
+    if (num_big_clusters) :
+        logging.info( "  %d cluster(s) are too big. Break them into smaller ones. Reclustering..." % num_big_clusters )
+        new_clusters = []
+        for c in clusters :
+            if (max_csize < len( c )) :
+                new_clusters += break_cluster( desired.subgraph( c ), simi_cutoff, max_csize )
+            else :
+                new_clusters.append( c )
+        clusters = new_clusters
+        logging.info( "  Reclustering... Done" )
+    clusters = sorted( clusters, cmp = lambda x, y : len( y ) - len( x ) )
+
+    n = len( clusters )
+    logging.info( "  %d clusters in total" % n )
+    for i, c in enumerate( clusters ) :
+        logging.info( "    size of cluster #%02d: %d" % (i, len( c ),) )
+
+    import pickle
+    fh = open( "complete_trypsin.pkl", "w" )
+    pickle.dump( complete.subgraph( clusters[0] ), fh )
+    fh.close()
+    fh = open( "desired_trypsin.pkl", "w" )
+    pickle.dump( desired.subgraph( clusters[0] ), fh )
+    fh.close()
+
+    # Optimizes the subgraphs.
     for e in clusters :
         # FIXME: Replcaes `trim_cluster' with `optimize_subgraph' when the latter is ready.
         trim_cluster( desired, e, 2 )
-
-    n = len( clusters )
-    logging.info( "%d clusters in total" % n )
-    for i, c in enumerate( clusters ) :
-        logging.info( "  size of cluster #%02d: %d" % (i, len( c ),) )
-    
+   
     # Connects the clusters.
     unconnected_clusters = set( range( n ) )
     while (unconnected_clusters) :
@@ -240,7 +333,7 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
             simi   = complete[node0][node1]["similarity"]
             mcs_id = complete[node0][node1]["mcs_id"    ]
             desired.add_edge( node0, node1, similarity = simi, boundary = True, mcs_id = mcs_id )
-            logging.warn( "boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),) )
+            logging.warn( "  boundary similarity = %f between '%s' and '%s'" % (simi, KBASE.ask( node0 ), KBASE.ask( node1 ),) )
             for e in unconnected_clusters :
                 if (node0 in clusters[e] or node1 in clusters[e]) :
                     connected_clusters.add( e )
@@ -327,3 +420,4 @@ if ("__main__" == __name__) :
     complete = pickle.load( fh0 )
     desired  = pickle.load( fh1 )
     optimize_subgraph( complete, desired )
+    break_cluster( desired, 0.4, 64 )
