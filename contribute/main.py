@@ -55,7 +55,7 @@ def main( molid_list, opt ) :
 
     # Gets graph (`g') and clusters (`c').
     logging.info( "Creating graph..." )
-    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.4, max_csize = 64, num_c2c = 1 )
+    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.4, max_csize = 100, num_c2c = 1 )
     graph.annotate_nodes_with_smiles ( g )
     graph.annotate_nodes_with_title  ( g )
     graph.annotate_edges_with_smiles ( g )
