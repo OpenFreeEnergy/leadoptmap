@@ -50,7 +50,7 @@ def main( molid_list, opt ) :
 
     logging.info( "MCS searching..." )
     mcs_ids    = mcs_engine.search_all( mols, opt )
-    basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
+    basic_rule = rule.Mcs( True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
     logging.info( "MCS searching... Done" )
 
     # Gets graph (`g') and clusters (`c').
