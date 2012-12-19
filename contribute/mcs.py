@@ -11,6 +11,7 @@ import subprocess
 import hashlib
 import logging
 import tempfile
+import pickle
 
 
 
@@ -115,18 +116,20 @@ try :
             mol1 = mol1._struc
 
             # Deletes hydrogen atoms before doing MCS search.
-            for mol in (mol0, mol1,) :
+            p0 = mol0.CreateCopy()
+            p1 = mol1.CreateCopy()
+            for mol in (p0, p1,) :
                 for atom in mol.GetAtoms() :
                     if (atom.IsHydrogen()) :
                         atom.SetIntType(1)
                     else:
                         atom.SetIntType(2)
-            oechem.OESuppressHydrogens(mol0)              
-            oechem.OESuppressHydrogens(mol1)     
+            oechem.OESuppressHydrogens(p0)              
+            oechem.OESuppressHydrogens(p1)     
             if (self._is_approximate) :
-                mcss = oechem.OEMCSSearch( mol1, self._atom_expr, self._bond_expr, oechem.OEMCSType_Approximate )
+                mcss = oechem.OEMCSSearch( p1, self._atom_expr, self._bond_expr, oechem.OEMCSType_Approximate )
             else:
-                mcss = oechem.OEMCSSearch( mol1, self._atom_expr, self._bond_expr )
+                mcss = oechem.OEMCSSearch( p1, self._atom_expr, self._bond_expr )
 
             # Shall we just use 1 as the mininum number of common atoms here?
             # We can later deal with the requirement of different minimum number of common atoms.
@@ -137,7 +140,7 @@ try :
             # If there are more than 1 matches with the same maximum number of atoms, we arbitrarily select the first one.
             mcs_mol = None
             max_num = 0
-            for match in mcss.Match( mol0, True ) :
+            for match in mcss.Match( p0, True ) :
                 # Gets the number of atoms in the MCS.
                 num_atom = 0
                 mcs_tmp  = oechem.OEMol()
@@ -153,14 +156,14 @@ try :
                     atom_match0 = []
                     atom_match1 = []
                     for matchpair in match.GetAtoms() :
-                        atom_match1.append( matchpair.target .GetIdx()+1 )
-                        atom_match0.append( matchpair.pattern.GetIdx()+1 )
+                        atom_match0.append( matchpair.target .GetIdx()+1 )
+                        atom_match1.append( matchpair.pattern.GetIdx()+1 )
                     
             if (mcs_mol) :
-                mol0    = OeStruc( mol0 )
-                mol1    = OeStruc( mol1 )
-                mcs_mol = OeStruc( mcs_mol )
-                return self.deposit_to_kbase( mol0.id(), mol1.id(), atom_match0, atom_match1, mcs_mol )
+                mol0    = struc.OeStruc( mol0 )
+                mol1    = struc.OeStruc( mol1 )
+                mcs_mol = struc.OeStruc( mcs_mol )
+                return self.deposit_to_kbase( mol0.id(), mol1.id(), atom_match0, atom_match1 )
             # Returns `None' if no MCS found.
             
         
@@ -169,15 +172,24 @@ try :
             """
             N.B.: O(N^2). Needs optimization.
             """
+            title_vs_id = {}
             ret     = []
             num_mol = len( mols )
+            print "check how many mols in total", num_mol
             for i in range( num_mol ) :
-                for j in range( i ) :
+                title = mols[i]._struc.GetTitle()
+                if not title_vs_id.has_key(title):
+                    title_vs_id[title] = mols[i].id()
+                for j in range( i+1, num_mol ) :
+                
                     result = self.search( mols[i], mols[j] )
                     if (result) :
                         ret.append( result )
+            file_title_v_id = open("title_vs_id.pickle","w")
+            pickle.dump(title_vs_id, file_title_v_id)
+            file_title_v_id.close()
             return ret
-        
+
 except ImportError :
     pass
 
@@ -261,12 +273,18 @@ try :
 
                 if (os.path.isfile( mae_fname )) :
                     os.remove( mae_fname )
+                title_vs_id = {}
 
                 for mol in mols :
                     title = mol.title()
                     mol.set_title( mol.id() )
                     mol.write( mae_fname )
                     mol.set_title( title )
+                    if not title_vs_id.has_key(title):
+                        title_vs_id[title] = mol.id()
+                file_title_v_id = open("title_vs_id.pickle","w")
+                pickle.dump(title_vs_id, file_title_v_id)
+                file_title_v_id.close()
                     
                 cmd          = [self._cmd,
                                 "-imae",     mae_fname,

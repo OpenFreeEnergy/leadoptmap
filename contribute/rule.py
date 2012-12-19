@@ -51,6 +51,7 @@ class Rule( object ) :
         @type  id1: C{str}
         @param id1: ID of the second molecule in the C{KBASE}
         """
+        #print "inside rule.py main rule check id", id0,id1
         result = self._similarity( id0, id1, **kwarg )
         if (result > 0) :
             for e in self._subrules :
@@ -264,6 +265,110 @@ class TrimMcs( Rule ) :
         num_heavy_atoms = len( mcs0.heavy_atoms() )
         num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
         
+        KBASE.deposit_extra( mcs_id, "num_heavy_atoms", num_heavy_atoms )
+        KBASE.deposit_extra( mcs_id, "num_light_atoms", num_light_atoms )
+
+        return similarity.exp_delta( 2 * (orig_num_heavy_atoms - num_heavy_atoms), 0 )
+
+class TrimMcs_oe( Rule ) :
+    """
+    Delete chiral atoms and partial ring atoms from MCS, return a score.
+    """
+    def __init__( self, *subrules ) :
+        Rule.__init__( self, *subrules )
+
+
+
+    def _delete_broken_ring( self, mol0, mol1, mcs0 ) :
+        #mcs_ring_atoms = mcs0.ring_atoms()
+        #print "Check mcs atom num, ring atoms and atom proppppppppppppp", len(mcs0.atom), mcs0.ring_atoms(), mcs0.atom_prop
+        #print "Check ring size inside rule", mcs0.ring_size()
+        mcs0_ring_dic = mcs0.ring_size()
+        #mcs_nonr_atoms = set( range( 1, len( mcs0.atom ) + 1 ) ) - mcs_ring_atoms
+        #mo0_ring_atoms = mol0.ring_atoms()
+        #print "Check ring size inside rule mol0", mol0.ring_size()
+        mol0_ring_dic = mol0.ring_size()
+        #mo1_ring_atoms = mol1.ring_atoms()
+        #print "Check ring size inside rule mol1", mol1.ring_size()
+        mol1_ring_dic = mol1.ring_size()
+        mo0_conflict = []
+        mo1_conflict = []
+
+        for i in mcs0_ring_dic.keys():
+            mol0_key = mcs0.atom_prop[i][  "orig_index"]
+            mol1_key = mcs0.atom_prop[i][  "mapped_index"]
+
+            if mcs0_ring_dic[i] <> mol0_ring_dic[mol0_key]:
+                #print "The ring size is different mcs0 : %s, mol0 :%s i : %s \n" %(mcs0_ring_dic[i], mol0_ring_dic[mol0_key], i)
+                mo0_conflict.append(i)
+            elif mcs0_ring_dic[i] <> mol1_ring_dic[mol1_key]:
+                #print "The ring size is different mcs0 : %s, mol1 :%s i : %s \n" %(mcs0_ring_dic[i], mol1_ring_dic[mol1_key], i)
+                mo1_conflict.append(i)
+        #print "Check confilict idx" , mo0_conflict, mo1_conflict
+        conflict = list( set(mo0_conflict) | set(mo1_conflict) )
+        #print "CCCCCCCCCCCCCCCCCCCCCCCCCCC" , conflict
+        mcs0.delete_atom( conflict )
+        return conflict
+        
+    def _similarity( self, id0, id1, **kwarg ) :
+        # Uses the first common substructure.
+        mcs_id = kwarg["mcs_id"]
+        mcs0   = mcs.get_struc( mcs_id ).copy()
+        mol0   = KBASE.ask( id0 )
+        mol1   = KBASE.ask( id1 )
+
+        orig_num_heavy_atoms = len( mcs0.heavy_atoms() )
+        # Deletes chiral atoms.
+        chiral_atoms = mcs0.chiral_atoms()
+        ring_atoms   = mcs0.  ring_atoms()
+        chiral_atoms.sort( reverse = True )
+        for atom_index in chiral_atoms :
+            if (atom_index in ring_atoms) :
+                bonded_atoms = set( mcs0.bonded_atoms( atom_index ) ) - ring_atoms
+                if (bonded_atoms) :
+                    i = 0
+                    n = 0
+                    for atom in bonded_atoms :
+                        cp = mcs0.copy()
+                        cp.delete_atom( atom )
+                        m = len( cp.atom )
+                        if (m > n) :
+                            i = atom
+                            n = m
+                    mcs0.delete_atom( i )
+                else :
+                    logging.warn( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
+            else :
+                # If the chiral atom is not a ring atom, we simply delete it.
+                mcs0.delete_atom( atom_index )
+
+        # If the deletion results in multiple unconnected fragments, we keep only the biggest one.
+        #print "After the deletion of chiral atoms"
+        #raw_input()
+        mcs0 = mcs0.copy()
+        atoms_to_delete = []
+        for e in mcs0.molecules()[1:] :
+            atoms_to_delete.extend( e )
+        #print "Rule Atom to delete", atoms_to_delete
+        mcs0.delete_atom( atoms_to_delete )
+        mcs0 = mcs0.copy()
+        partial_ring         = self._delete_broken_ring( mol0, mol1, mcs0 )
+        mcs0 = mcs0.copy()
+        atoms_to_delete_2 = []
+        for e in mcs0.molecules()[1:] :
+            atoms_to_delete_2.extend( e )
+        #print "Rule Atom to delete", atoms_to_delete
+        mcs0.delete_atom( atoms_to_delete_2 )
+        smiles0 = mcs0.smiles()
+        smiles1 = smiles0
+        #print "Check the TTTTTTTTTTTTTTTrimcs smile", smiles0, smiles1
+
+        KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smiles0, id1:smiles1,} )
+        KBASE.deposit_extra( mcs_id, "partial_ring", len( partial_ring ) )
+
+        num_heavy_atoms = len( mcs0.heavy_atoms() )
+        num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
+
         KBASE.deposit_extra( mcs_id, "num_heavy_atoms", num_heavy_atoms )
         KBASE.deposit_extra( mcs_id, "num_light_atoms", num_light_atoms )
 

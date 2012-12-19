@@ -509,21 +509,29 @@ try:
 
 
         def copy( self ) :
-            return OeStruc( self._struc.CreateCopy() )
-
+            ret = OeStruc( self._struc.CreateCopy() )
+            ret.atom_prop = copy.deepcopy(self.atom_prop)
+            return ret
         
 
-        def extract(self) :
+        def extract(self, indices) :
             """                                               
             Return a new structure object which contains the atoms of the current structure that appear in the specified list.
             """                                               
-            new_mol = self._struc.copy()
-            for atom in new_mol.GetAtoms():                   
-                oe_idx = atom.GetIdx() + 1                    
-                if oe_idx not in indices:                     
-                    new_mol.DeleteAtom(atom)                  
-            return OeStruc(new_mol)
-
+            #make a copy before deleting atoms                  
+            new_mol = self._struc.CreateCopy()
+            for atom in new_mol.GetAtoms():
+                oe_idx = atom.GetIdx() + 1
+                if oe_idx not in indices:
+                    new_mol.DeleteAtom(atom)
+            #make a copy after deleting to make sure the idx start from 1   
+            new_mol_copy = new_mol.CreateCopy()               
+            oechem.OEFindRingAtomsAndBonds(new_mol_copy)      
+            ret = OeStruc(new_mol_copy)                       
+            indices.sort()                                    
+            for i, e in enumerate(indices, start = 1):        
+                ret.atom_prop[i] = copy.deepcopy(self.atom_prop[e])              
+            return ret
         
             
 
@@ -560,7 +568,7 @@ try:
             """
             Returns net charge of the structure
             """
-            return OENetCharge( self._struc )
+            return oechem.OENetCharge( self._struc )
 
         
 
@@ -601,6 +609,26 @@ try:
                     ret.append( oe_idx )                      
             return set( ret )
 
+        def ring_size (self):                                 
+            ring_size = {}                                    
+            oechem.OEFindRingAtomsAndBonds(self._struc)       
+            nrrings, rings = oechem.OEDetermineRingSystems(self._struc)     
+            ring_dic = {}                                     
+            for ring_idx in rings:                            
+                if not ring_dic.has_key(ring_idx):            
+                    ring_dic[ring_idx] = []                   
+            for key in ring_dic.keys():                       
+                #print "key", key                             
+                if key > 0:                                   
+                    ring_dic[key] = rings.count(key)          
+                else:                                         
+                    ring_dic[key] = 0                         
+            #print "Inside struc check ring dic", ring_dic     
+            for (idx, atom) in enumerate(rings):                            
+                oe_idx = idx +1                                             
+                ring_size [oe_idx] = ring_dic[atom]           
+                                                              
+            return ring_size
 
         def bonded_atoms( self, atom_index ) :
             """
@@ -613,9 +641,34 @@ try:
                 ret_atoms.append(e)                           
             for atom in ret_atoms:                            
                 oe_idx = atom.GetIdx() + 1                    
-                ret.append(atom.GetIdx())                     
+                ret.append(oe_idx)                     
             return ret
 
+        def molecules(self):
+            """
+            Returns a list of atom lists. Each element list is a list of atoms o
+f a molecule in the structure. The first
+            element in the returned list belongs to the biggest molecule.
+            """
+            ret = []
+            count,parts = oechem.OEDetermineComponents(self._struc)
+            for i in range (1, count+1):
+                atom_in_this_part = []
+                for j,k in enumerate (parts):
+                    if i == k:
+                        atom_in_this_part.append(j+1)         
+                ret.append(atom_in_this_part)                 
+            def cmp_mol( x, y ) :                             
+                num_x = len( x )                              
+                num_y = len( y )                              
+                if (num_y == num_x) :                                       
+                    heavy_atoms    = set( self.heavy_atoms() )              
+                    num_heavy_in_x = len( set( x ) - heavy_atoms )
+                    num_heavy_in_y = len( set( y ) - heavy_atoms )          
+                    return num_heavy_in_y - num_heavy_in_x                  
+                return num_y - num_x
+            ret.sort( cmp = cmp_mol )                         
+            return ret
 
         def delete_atom( self, atom_index ) :
             """
@@ -623,6 +676,8 @@ try:
             """
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
+            atom_index.sort()
+            atom_index.reverse()
             ret_atoms = []
             for (idx, e) in enumerate(self._struc.GetAtoms()):
                 oe_idx = idx + 1
@@ -639,7 +694,22 @@ try:
                         print "Struc has duplicate atom index :i %s need to check"%oe_idx                                                     
                     else:                                     
                         self.atom[oe_idx] = atom
-
+            for i in atom_index:                              
+                del self.atom_prop[i]
+        def smiles(self):                                     
+            """                                               
+            Returns a SMILES string for this structure.       
+            """                                               
+            return oechem.OECreateCanSmiString(self._struc)   
+        def smarts(self, atom = None):                        
+            """                                               
+            Returns a SMARTS string for this structure.       
+                                                              
+            @type  atoms: C{list} of C{int}                   
+            @param atoms: A list of atom indices              
+            """                                               
+            "Oechem doesn't have this function"               
+            return None
 
         def write (self , filename, format = "mol2", mode = "w"):
             #print "Struc check write format", oechem.oemolostream(filename)
@@ -663,35 +733,41 @@ try:
             return oechem.OEWriteMolecule(ofs, self._struc  )
         
             
-    def read_file_oe (filename):
+    def read_file (filename):
         """
-        Reads a .mol2 file and returns title of molecule , base molecule object and `OEMol' objects.
+        Reads a .mol2 file and returns title of molecule , base molecule object 
+and `OEMol' objects.
         """
+        ret = []
         istream = oechem.oemolistream()
-        istream.open(filename)
-
-        molecule = oechem.OEMol()
-
-        oechem.OEReadMolecule(istream, molecule)
-
-        istream.close()                                       
+        istream.open(filename)                                
                                                               
-        return molecule
+        molecule = oechem.OEMol()                             
+                                                              
+        oechem.OEReadMolecule(istream, molecule)              
+                                                              
+        istream.close()                                       
+        struc = OeStruc(molecule)                             
+        for i in range(1, len(struc.atom) + 1) :              
+            struc.atom_prop[i]["orig_index"] = i        
+        ret.append(struc)                                     
+                                                                      
+        return ret
 
-
-    def read_n_files_oe( filenames ) :
-        """
-        `filenames' is a list of file names. The format of each file will be determined from the file's extension name.
-        Reads the files and deposits them into the `KBASE'. Returns a list of keys.
+    def read_n_files( filenames ) :
         """                                                   
-        strucid = []                                          
-        for fn in filenames :                                 
-            strucs = read_file_oe( fn )                         
-            e = OeStruc(strucs)                                
-            id = KBASE.deposit( e.id(), e )               
-            e.set_id( id )                                
-            strucid.append( id )
-        return strucid        
+        `filenames' is a list of file names. The format of each file will be det
+ermined from the file's extension name. Reads the files and deposits them into the `KBASE'. Returns a list of keys.                                                           
+        """                                                   
+        strucid = []
+        for fn in filenames :
+            strucs = read_file( fn )
+            for e in strucs:                                  
+                id = KBASE.deposit( e.id(), e )               
+                e.set_id( id )                                
+                strucid.append( id )                          
+        return strucid
+
 
     infrastructure = "oechem"
 

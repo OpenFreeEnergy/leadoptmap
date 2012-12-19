@@ -14,7 +14,7 @@ import subprocess
 import hashlib
 import networkx
 import logging
-
+import pickle
 
 
 def create( basic_graph, mcs_ids, rule, add_attr = True ) :
@@ -255,18 +255,24 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     """
     basic_graph = networkx.Graph()
     all_ids     = set()
+    id_simi = {}
     fh          = open( "simiscore", "w" ) if (logging.getLogger().getEffectiveLevel() == logging.DEBUG) else None
     logging.info( "  Calculating similarity scores..." )
     for id in mcs_ids :
         id0, id1 = mcs.get_parent_ids( id )
         simi     = basic_rule.similarity( id0, id1, mcs_id = id )
+        #dump similarity scores for id0 and id1
+        if not id_simi.has_key((id0,id1)):
+            id_simi [(id0, id1)] = simi
         KBASE.deposit_extra( id, "similarity", simi )
         all_ids.add( id0 )
         all_ids.add( id1 )
         if (fh) :
             print >> fh, simi
     logging.info( "  Calculating similarity scores... Done" )
-        
+    file_si = open('id_vs_simi.pickle', 'w')                  
+    pickle.dump(id_simi, file_si)
+    file_si.close()        
     basic_graph.add_nodes_from( all_ids )
 
     complete = create( basic_graph, mcs_ids, rule.Cutoff( 0 ) )

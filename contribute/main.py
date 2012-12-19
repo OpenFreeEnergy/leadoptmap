@@ -45,17 +45,20 @@ def main( molid_list, opt ) :
     for id in molid_list[opt.receptor:] :
         mols.append( KBASE.ask( id ) )
 
-    if   (struc.infrastructure == "schrodinger") : mcs_engine = mcs.SchrodMcs( 1 )
-    elif (struc.infrastructure == "oechem"     ) : mcs_engine = mcs.OeMcs()
+    if   (struc.infrastructure == "schrodinger") : 
+        mcs_engine = mcs.SchrodMcs( 1 )
+        basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
+    elif (struc.infrastructure == "oechem"     ) : 
+        mcs_engine = mcs.OeMcs()
+        basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
 
     logging.info( "MCS searching..." )
     mcs_ids    = mcs_engine.search_all( mols, opt )
-    basic_rule = rule.Mcs( True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
     logging.info( "MCS searching... Done" )
 
     # Gets graph (`g') and clusters (`c').
     logging.info( "Creating graph..." )
-    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.4, max_csize = 100, num_c2c = 1 )
+    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
     graph.annotate_nodes_with_smiles ( g )
     graph.annotate_nodes_with_title  ( g )
     graph.annotate_edges_with_smiles ( g )
@@ -85,7 +88,10 @@ def main( molid_list, opt ) :
         ag.edge_attr["penwidth" ] = 2.0
         
         simi  = [float( e.attr["similarity"] ) for e in ag.edges()]
-        scale = 1.0 / max( simi )
+        if len(simi) > 0:
+            scale = 1.0 / max( simi )
+        else:
+            scale = 1.0
         for e in ag.edges_iter() :
             try :
                 partial_ring = int( e.attr["partial_ring"] )
