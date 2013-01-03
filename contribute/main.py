@@ -41,73 +41,72 @@ def main( molid_list, opt ) :
     @type  molid_list: C{list} of C{str}'s
     @param molid_list: A list of molecule IDs in the C{KBASE}
     """
-    mols = []
-    for id in molid_list[opt.receptor:] :
-        mols.append( KBASE.ask( id ) )
+    if (opt.graph) :
+        g = pickle.load( open( opt.graph ) )
+    else :
+        mols = []
+        for id in molid_list[opt.receptor:] :
+            mols.append( KBASE.ask( id ) )
 
-    if   (struc.infrastructure == "schrodinger") : 
-        mcs_engine = mcs.SchrodMcs( 1 )
-        basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
-    elif (struc.infrastructure == "oechem"     ) : 
-        mcs_engine = mcs.OeMcs()
-        basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
+        if   (struc.infrastructure == "schrodinger") : 
+            mcs_engine = mcs.SchrodMcs( 1 )
+            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
+        elif (struc.infrastructure == "oechem"     ) : 
+            mcs_engine = mcs.OeMcs()
+            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
 
-    logging.info( "MCS searching..." )
-    mcs_ids    = mcs_engine.search_all( mols, opt )
-    logging.info( "MCS searching... Done" )
+        logging.info( "MCS searching..." )
+        mcs_ids = mcs_engine.search_all( mols, opt )
+        logging.info( "MCS searching... Done" )
 
-    # Gets graph (`g') and clusters (`c').
-    logging.info( "Creating graph..." )
-    g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
-    graph.annotate_nodes_with_smiles ( g )
-    graph.annotate_nodes_with_title  ( g )
-    graph.annotate_edges_with_smiles ( g )
-    graph.annotate_edges_with_hexcode( g )
-    graph.annotate_edges_with_matches( g )
-    logging.info( "Creating graph... Done" )
+        # Gets graph (`g') and clusters (`c').
+        logging.info( "Creating graph..." )
+        g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
+        graph.annotate_nodes_with_smiles ( g )
+        graph.annotate_nodes_with_title  ( g )
+        graph.annotate_edges_with_smiles ( g )
+        graph.annotate_edges_with_hexcode( g )
+        graph.annotate_edges_with_matches( g )
+        logging.info( "Creating graph... Done" )
     
-    logging.debug( "DEBUG: %d clusters (counted as the connected components in the graph):" % len( c ) )
-    c.sort( lambda x, y : len( x ) - len( y ) )
-    for i, e in enumerate( c ) :
-        logging.debug( "DEBUG: cluster #%d, %d structures:" % (i, len( e ),) )
-        titles = [KBASE.ask( id ).title() for id in e]
-        titles.sort()
-        for t in titles :
-            logging.debug( "DEBUG:  %s" % t )
+        logging.debug( "DEBUG: %d clusters (counted as the connected components in the graph):" % len( c ) )
+        c.sort( lambda x, y : len( x ) - len( y ) )
+        for i, e in enumerate( c ) :
+            logging.debug( "DEBUG: cluster #%d, %d structures:" % (i, len( e ),) )
+            titles = [KBASE.ask( id ).title() for id in e]
+            titles.sort()
+            for t in titles :
+                logging.debug( "DEBUG:  %s" % t )
  
-    pkl_fname = opt.output + ".pkl"
-    pkl_fh    = open( pkl_fname, "w" )
-    pickle.dump( g, pkl_fh )
-    pkl_fh.close()
+        pkl_fname = opt.output + ".pkl"
+        pkl_fh    = open( pkl_fname, "w" )
+        pickle.dump( g, pkl_fh )
+        pkl_fh.close()
     
-    try :
-        import graphviz
-        
-        ag = networkx.to_agraph( g )
-        ag.node_attr["fixedsize"] = True
-        ag.edge_attr["penwidth" ] = 2.0
-        
-        simi  = [float( e.attr["similarity"] ) for e in ag.edges()]
-        if len(simi) > 0:
+        try :
+            import graphviz
+            
+            ag = networkx.to_agraph( g )
+            ag.node_attr["fixedsize"] = True
+            ag.edge_attr["penwidth" ] = 2.0
+            
+            simi  = [float( e.attr["similarity"] ) for e in ag.edges()]
             scale = 1.0 / max( simi )
-        else:
-            scale = 1.0
-        for e in ag.edges_iter() :
-            try :
-                partial_ring = int( e.attr["partial_ring"] )
-            except (ValueError, TypeError) :
-                partial_ring = 0
-            saturation       = float( e.attr["similarity"] ) * scale
-            saturation       = 0.0 if (saturation < 0) else (1.0 if (saturation > 1) else saturation)
-            e.attr["color" ] = "0.8396,%f,0.8" % saturation
-            e.attr["weight"] = saturation
-            del e.attr["label"]
-            if (saturation < 0.01 or partial_ring) :
-                e.attr["style"] = "dashed"
-        ag.write( opt.output + ".dot" )
-    except ImportError :
-        logging.warn( "WARNING: Graphviz is not installed. Cannot write a .dot output file." )
-
+            for e in ag.edges_iter() :
+                try :
+                    partial_ring = int( e.attr["partial_ring"] )
+                except (ValueError, TypeError) :
+                    partial_ring = 0
+                saturation       = float( e.attr["similarity"] ) * scale
+                saturation       = 0.0 if (saturation < 0) else (1.0 if (saturation > 1) else saturation)
+                e.attr["color" ] = "0.8396,%f,0.8" % saturation
+                e.attr["weight"] = saturation
+                del e.attr["label"]
+                if (saturation < 0.01 or partial_ring) :
+                    e.attr["style"] = "dashed"
+            ag.write( opt.output + ".dot" )
+        except ImportError :
+            logging.warn( "WARNING: Graphviz is not installed. Cannot write a .dot output file." )
 
     edges = g.edges( data = True )
     logging.info( "%d edges in total" % len( edges ) )
@@ -171,6 +170,7 @@ def startup() :
     parser.add_option( "-s", "--siminp", metavar = "BASENAME",
                        help = "simulation input files' base name. When this option is specified, a number of input files "
                        "for FEP simulations will be written out." )
+    parser.add_option( "-g", "--graph", metavar = "FILENAME", help = "use the graph as saved in file FILENAME." )
     parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
                        help = "simulation input file type [mae | gro]" )
     parser.add_option( "-r", "--receptor", default = 0, metavar = "N", type = "int",
