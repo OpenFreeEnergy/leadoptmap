@@ -160,7 +160,7 @@ class Struc( object ) :
         @rtype : C{set} of C{int}
         @return: A set of atom indices
         """
-        raise NotImplementedError( "`chiral_atoms' method not implemented by subclass" )
+        raise NotImplementedError( "`ring_atom' method not implemented by subclass" )
 
 
 
