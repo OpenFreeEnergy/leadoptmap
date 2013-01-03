@@ -608,7 +608,21 @@ try:
                     oe_idx = atom.GetIdx() + 1
                     ret.append( oe_idx )                      
             return set( ret )
-
+        
+        def aromatic_atoms ( self ):                          
+            """                                               
+            Returns a set of aromatic atoms.                      
+            """                                               
+            ret = []                                          
+            ret_atoms = []                                    
+            for e in self._struc.GetAtoms():                  
+                ret_atoms.append(e)                           
+            for atom in ret_atoms:                            
+                if atom.IsAromatic():                           
+                    oe_idx = atom.GetIdx() + 1                
+                    ret.append( oe_idx )                      
+            return set( ret )
+    
         def ring_size (self):                                 
             ring_size = {}                                    
             oechem.OEFindRingAtomsAndBonds(self._struc)       

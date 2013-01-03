@@ -53,7 +53,7 @@ def main( molid_list, opt ) :
             basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
         elif (struc.infrastructure == "oechem"     ) : 
             mcs_engine = mcs.OeMcs()
-            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
+            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( True, rule.MinimumNumberOfAtom() ) )
 
         logging.info( "MCS searching..." )
         mcs_ids = mcs_engine.search_all( mols, opt )
