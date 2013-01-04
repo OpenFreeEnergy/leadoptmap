@@ -321,20 +321,31 @@ try :
 
 
 
-        def ring_atoms( self ) :
+        def ring_atoms( self, aromaticity = 0, group = False ) :
             """
-            Returns a set of ring atoms.
+            Returns ring atoms.
 
-            @rtype : C{set} of C{int}
-            @return: A set of atom indices
+            @type  aromaticity: C{int} -1, 0, 1
+            @param aromaticity: -1 = non-aromatic, 0 = all, 1 = aromatic. Make the function return the specified type of ring
+                                atoms.
+            @type        group: C{bool}
+            @param       group: If true, returns a list of C{set} objects, each of which is a set of indices of atoms in the
+                                same ring; otherwise, returns a single set containing indices of all selected ring atoms.
+            @rtype            : C{set} of C{int} or a C{list} of C{set} of C{int}
+            @return           : A set or a list of sets of atom indices
             """
-            rings = self._struc.find_rings()
-            ret   = []
-            for e in rings :
-                ret.extend( e )
-            return set( ret )
+            ret = []
+            for e in self._struc.ring :
+                if (aromaticity == 0                           or
+                    (    e.isAromatic() and aromaticity ==  1) or
+                    (not e.isAromatic() and aromaticity == -1)) :
+                    if (group) :
+                        ret.append( set( e.getAtomList() ) )
+                    else :
+                        ret.extend( e.getAtomList() )
+            return ret if (group) else set( ret )
 
-
+        
 
         def bonded_atoms( self, atom_index ) :
             """
