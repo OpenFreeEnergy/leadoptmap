@@ -50,10 +50,12 @@ def main( molid_list, opt ) :
 
         if   (struc.infrastructure == "schrodinger") : 
             mcs_engine = mcs.SchrodMcs( 1 )
-            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs( rule.MinimumNumberOfAtom() ) )
+            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( True,  rule.MinimumNumberOfAtom() ) )
+            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( False, rule.MinimumNumberOfAtom() ) )
         elif (struc.infrastructure == "oechem"     ) : 
             mcs_engine = mcs.OeMcs()
-            basic_rule = rule.Mcs(True, rule.EqualCharge(), rule.TrimMcs_oe( True, rule.MinimumNumberOfAtom() ) )
+            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
+            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
 
         logging.info( "MCS searching..." )
         mcs_ids = mcs_engine.search_all( mols, opt )
@@ -61,7 +63,7 @@ def main( molid_list, opt ) :
 
         # Gets graph (`g') and clusters (`c').
         logging.info( "Creating graph..." )
-        g, c = graph.gen_graph( mcs_ids, basic_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
+        g, c = graph.gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
         graph.annotate_nodes_with_smiles ( g )
         graph.annotate_nodes_with_title  ( g )
         graph.annotate_edges_with_smiles ( g )

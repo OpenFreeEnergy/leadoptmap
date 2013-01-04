@@ -36,7 +36,12 @@ def create( basic_graph, mcs_ids, rule, add_attr = True ) :
                     partial_ring = int( KBASE.ask( id, "partial_ring" ) )
                 except LookupError :
                     partial_ring = 0
-                g.add_edge( id0, id1, similarity = simi, partial_ring = partial_ring, mcs_id = id )
+                try :
+                    slack_simi = KBASE.ask( id, "slack_similarity" )
+                except LookupError :
+                    slack_simi = 0.0
+                g.add_edge( id0, id1, similarity = simi, slack_similarity = slack_simi,
+                            partial_ring = partial_ring, mcs_id = id )
             else :
                 g.add_edge( id0, id1, similarity = simi )
     return g
@@ -212,9 +217,9 @@ def trim_cluster( g, cluster, num_edges ) :
 
 
 
-def optimize_subgraph( complete, desired ) :
+def optimize_graph( complete, desired, algo, simi_cutoff ) :
     """
-    Optimize a given subgraph to minimize its number of edges. Constraints, such as the "maximum distance" and "circular
+    Optimize a given graph to minimize its number of edges. Constraints, such as the "maximum distance" and "circular
     connections", must be satisfied.
 
     The two arguments: C{complete} and C{desired} are two graphs. Their edges have an attribute called "similarity", whose
@@ -226,19 +231,48 @@ def optimize_subgraph( complete, desired ) :
     still are too many. So the main purpose of this function is to further minimize the C{desired} graph. The optimization
     might not really need C{complete}, but we pass it on just in case we need extra scores that happened to be cut off.
     
-    @type  complete: C{networkx.Graph}
-    @param complete: A graph where almost any pair of two nodes are connected.
-    @type   desired: C{networkx.Graph}
-    @param  desired: This graph is created from the C{complete} graph in the following way: First we do cutoff on all
-                     similarity scores (meaning that if a score is less than a threshold value it will be set to zero,
-                     otherwise it will be kept as is), then we delete edges with zero scores.
-    @return: A optimized subgraph
+    @type     complete: C{networkx.Graph}
+    @param    complete: A graph where almost any pair of two nodes are connected.
+    @type      desired: C{networkx.Graph}
+    @param     desired: This graph is created from the C{complete} graph in the following way: First we do cutoff on all
+                        similarity scores (meaning that if a score is less than a threshold value it will be set to zero,
+                        otherwise it will be kept as is), then we delete edges with zero scores.
+    @type         algo: C{str}: "trim", "gg4"
+    @param        algo: The algorithm to optimize the graph.
+    @type  simi_cutoff: C{float}
+    @param simi_cutoff: Similarity cutoff
+    
+    @return: Optimized graph
     """
-    pass
-
+    if (algo == "trim") :
+        return trim_cluster( desired, desired.nodes(), 2 )
+    if (algo == "gg4" ) :
+        import numpy
+        id_list       = desired.nodes()
+        size          = len( id_list )
+        strict_scores = numpy.zeros( (size, size,) )
+        slack_scores  = numpy.zeros( (size, size,) )
+        for i in range( size ) :
+            strict_scores[i, i] = 1.0
+            slack_scores [i, i] = 1.0
+            for j in range( i + 1, size ) :
+                id_i = id_list[i]
+                id_j = id_list[j]
+                try :
+                    simi = desired[id_i][id_j][      "similarity"]
+                    slak = desired[id_i][id_j]["slack_similarity"]
+                    strict_scores[i, j] = simi
+                    slack_scores [i, j] = slak
+                    strict_scores[j, i] = simi
+                    slack_scores [j, i] = slak
+                except KeyError :
+                    pass
+        import GraphGenerator4 as gg4
+        generator = gg4.GraphGenerator4( strict_scores, slack_scores, simi_cutoff, max_path_length, id_list )
+        return generator.getGraphObject()
     
 
-def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
+def gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff, max_csize, num_c2c ) :
     """
     Generates and returns a graph according to the requirements.
     
@@ -255,24 +289,21 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
     """
     basic_graph = networkx.Graph()
     all_ids     = set()
-    id_simi = {}
     fh          = open( "simiscore", "w" ) if (logging.getLogger().getEffectiveLevel() == logging.DEBUG) else None
     logging.info( "  Calculating similarity scores..." )
     for id in mcs_ids :
-        id0, id1 = mcs.get_parent_ids( id )
-        simi     = basic_rule.similarity( id0, id1, mcs_id = id )
-        #dump similarity scores for id0 and id1
-        if not id_simi.has_key((id0,id1)):
-            id_simi [(id0, id1)] = simi
-        KBASE.deposit_extra( id, "similarity", simi )
+        id0, id1   = mcs.get_parent_ids( id )
+        simi       = basic_rule.similarity( id0, id1, mcs_id = id )
+        slack_simi = slack_rule.similarity( id0, id1, mcs_id = id )
+        KBASE.deposit_extra( id, "similarity",             simi )
+        KBASE.deposit_extra( id, "slack_similarity", slack_simi )
+        if (simi != slack_simi) :
+            print simi, slack_simi
         all_ids.add( id0 )
         all_ids.add( id1 )
         if (fh) :
             print >> fh, simi
     logging.info( "  Calculating similarity scores... Done" )
-    file_si = open('id_vs_simi.pickle', 'w')                  
-    pickle.dump(id_simi, file_si)
-    file_si.close()        
     basic_graph.add_nodes_from( all_ids )
 
     complete = create( basic_graph, mcs_ids, rule.Cutoff( 0 ) )
@@ -303,13 +334,17 @@ def gen_graph( mcs_ids, basic_rule, simi_cutoff, max_csize, num_c2c ) :
         logging.info( "    size of cluster #%02d: %d" % (i, len( c ),) )
 
     # Optimizes the subgraphs.
+    logging.info( "  Optimizing the subgraph of each cluster..." )
+    new_desired = networkx.Graph()
     for e in clusters :
-        # FIXME: Replcaes `trim_cluster' with `optimize_subgraph' when the latter is ready.
-        trim_cluster( desired, e, 2 )
+        sg  = optimize_graph( complete.subgraph( e ), desired.subgraph( e ), "gg4", simi_cutoff )
+        new_desired = networkx.union( new_desired, sg )
+    desired = new_desired
+    logging.info( "  Optimizing the subgraph of each cluster... Done" )
    
     # Connects the clusters.
     unconnected_clusters = set( range( n ) )
-    while (unconnected_clusters) :
+    while (unconnected_clusters and n > 1) :
         c2c_edges      = []
         cluster_index  = unconnected_clusters.pop()
         this_cluster   = clusters[cluster_index]
