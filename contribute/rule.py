@@ -1,4 +1,4 @@
-"""We implement a minimalist rule engine, and a few basic rule classes. With these infrastructure, we define a C{MCS} rule.
+"""We implement a minimalist rule engine, and a few basic rule classes.
 """
 
 
@@ -147,9 +147,8 @@ class Mcs( Rule ) :
     MCS-based rule
     Similarity is scored using the C{similarity.by_heavy_atom_count} (see the C{similarity} module).
     """
-    def __init__( self, exclude_chiral_atoms = True, *subrules ) :
+    def __init__( self, *subrules ) :
         Rule.__init__( self, *subrules )
-        self._exclude_chiral_atoms = exclude_chiral_atoms
         
         
 
@@ -174,8 +173,9 @@ class TrimMcs( Rule ) :
     """
     Delete chiral atoms and partial ring atoms from MCS, return a score.
     """
-    def __init__( self, *subrules ) :
+    def __init__( self, strict = True, *subrules ) :
         Rule.__init__( self, *subrules )
+        self._strict = strict
         
 
 
@@ -187,16 +187,55 @@ class TrimMcs( Rule ) :
 
         mo0_conflict   = set( [mcs0.atom_prop[i][  "orig_index"] for i in mcs_nonr_atoms] ) & mo0_ring_atoms
         mo1_conflict   = set( [mcs0.atom_prop[i]["mapped_index"] for i in mcs_nonr_atoms] ) & mo1_ring_atoms
+
+        def extend_conflict_to_whole_ring( mol, conflict ) :
+            ring_agrps = mol.ring_atoms( aromaticity = 0, group = True )
+            old_len    = 0
+            while (old_len != len( conflict )) :
+                old_len     = len( conflict )
+                atom_to_add = set()
+                for a in conflict :
+                    for i, r in enumerate( ring_agrps ) :
+                        if (a in r) :
+                            atom_to_add   |= set( r )
+                            ring_agrps[i]  = []
+                conflict |= atom_to_add
+                
+        def extend_conflict_to_nonaromatic_ring( mol, conflict ) :
+            # We have to be careful here. When we delete non-aromatic rings, we should avoid deleting atoms involved in both
+            # aromatic and no-aromatic rings.
+            ring_agrps = mol.ring_atoms( aromaticity = -1, group = True )
+            arom_rings = mol.ring_atoms( aromaticity =  1, group = True )
+            for r in ring_agrps :
+                for ar in arom_rings :
+                    r -= ar
+            old_len = 0
+            while (old_len != len( conflict )) :
+                old_len     = len( conflict )
+                atom_to_add = set()
+                for a in conflict :
+                    for i, r in enumerate( ring_agrps ) :
+                        if (a in r) :
+                            atom_to_add   |= set( r )
+                            ring_agrps[i]  = []
+                conflict |= atom_to_add
+
+        if (self._strict) :
+            extend_conflict_to_whole_ring( mol0, mo0_conflict )
+            extend_conflict_to_whole_ring( mol1, mo1_conflict )
+        else :
+            extend_conflict_to_nonaromatic_ring( mol0, mo0_conflict )
+            extend_conflict_to_nonaromatic_ring( mol1, mo1_conflict )
         
-        # Now indices in mo0_conflict and mo1_conflict are indices in mol0 and mo1, respectively.
+        # Now indices in mo0_conflict and mo1_conflict are indices in mo0 and mo1, respectively.
         # We need to map them back to the indices in mcs0.
         mo0_to_mcs = {}
         mo1_to_mcs = {}
         for i in range( 1, len( mcs0.atom ) + 1 ) :
             mo0_to_mcs[mcs0.atom_prop[i][  "orig_index"]] = i
             mo1_to_mcs[mcs0.atom_prop[i]["mapped_index"]] = i
-        mo0_conflict = set( [mo0_to_mcs[i] for i in mo0_conflict] )
-        mo1_conflict = set( [mo1_to_mcs[i] for i in mo1_conflict] )
+        mo0_conflict = set( [mo0_to_mcs[i] for i in mo0_conflict if (i in mo0_to_mcs)] )
+        mo1_conflict = set( [mo1_to_mcs[i] for i in mo1_conflict if (i in mo1_to_mcs)] )
 
         conflict = list( mo0_conflict | mo1_conflict )
         mcs0.delete_atom( conflict )
@@ -269,6 +308,8 @@ class TrimMcs( Rule ) :
         KBASE.deposit_extra( mcs_id, "num_light_atoms", num_light_atoms )
 
         return similarity.exp_delta( 2 * (orig_num_heavy_atoms - num_heavy_atoms), 0 )
+
+
 
 class TrimMcs_oe( Rule ) :
     """
