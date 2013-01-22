@@ -202,8 +202,13 @@ class DotRender:
             source_title = source.get('title')
             dest_title = dest.get('title')  
             
-            render = TableRender(table_border=1)
-            render.addText([source_title, dest_title])
+            if self._align:
+                render = TableRender(table_border=1)
+                render.addText([source_title, dest_title])
+            else:
+                render = TableRender(table_border=0)
+                render.addText(["%s : %s"%(source_title, dest_title)])
+            
             if self._align:
                 source_index = source.get_sequence()
                 dest_index = dest.get_sequence()

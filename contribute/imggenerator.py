@@ -157,7 +157,9 @@ class SchrodImgGenerator(ImgGenerator):
         return self.canvas2d.ChmMol.fromSMILES(smiles)    
 
     def mol2svg(self, mol, svg_fname):
-        pic = self._renderer.getQPicture(mol, False)
+        #FIXME: add an extra argument to mol2svg
+        #pic = self._renderer.getQPicture(mol, False)
+        pic = self._renderer.getQPicture(mol)
         rect = pic.boundingRect()
         svg_gen = self.QtSvg.QSvgGenerator()
         svg_gen.setFileName(svg_fname)
@@ -173,7 +175,9 @@ class SchrodImgGenerator(ImgGenerator):
 
     
     def mol2image(self, mol, image_fname): 
-        pic = self._renderer.getQPicture(mol, False)
+        #FIXME: add an extra argument to mol2smiles
+        #pic = self._renderer.getQPicture(mol, False)
+        pic = self._renderer.getQPicture(mol)
         rect = pic.boundingRect()
         qimage = self.QtGui.QImage(rect.width(), rect.height(),self.QtGui.QImage.Format_ARGB32)
         qimage.fill(self.QtCore.Qt.white)
