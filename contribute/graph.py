@@ -337,7 +337,7 @@ def gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff, max_csize, num_c2c 
     logging.info( "  Optimizing the subgraph of each cluster..." )
     new_desired = networkx.Graph()
     for e in clusters :
-        sg  = optimize_graph( complete.subgraph( e ), desired.subgraph( e ), "gg4", simi_cutoff )
+        sg  = optimize_graph( complete.subgraph( e ), desired.subgraph( e ), "trim", simi_cutoff )
         new_desired = networkx.union( new_desired, sg )
     desired = new_desired
     logging.info( "  Optimizing the subgraph of each cluster... Done" )

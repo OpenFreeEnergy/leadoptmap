@@ -54,8 +54,8 @@ def main( molid_list, opt ) :
             slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( False, rule.MinimumNumberOfAtom() ) )
         elif (struc.infrastructure == "oechem"     ) : 
             mcs_engine = mcs.OeMcs()
-            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
-            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( rule.MinimumNumberOfAtom() ) )
+            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe(True, rule.MinimumNumberOfAtom() ) )
+            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe(False, rule.MinimumNumberOfAtom() ) )
 
         logging.info( "MCS searching..." )
         mcs_ids = mcs_engine.search_all( mols, opt )
