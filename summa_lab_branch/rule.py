@@ -400,11 +400,13 @@ class TrimMcs_oe( Rule ) :
                             i = atom
                             n = m
                     mcs0.delete_atom( i )
+                    mcs0 = mcs0.copy()
                 else :
                     logging.warn( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
             else :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )
+                mcs0 = mcs0.copy()
 
         # If the deletion results in multiple unconnected fragments, we keep only the biggest one.
         #print "After the deletion of chiral atoms"
