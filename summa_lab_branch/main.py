@@ -54,16 +54,40 @@ def main( molid_list, opt ) :
             slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( False, rule.MinimumNumberOfAtom() ) )
         elif (struc.infrastructure == "oechem"     ) : 
             mcs_engine = mcs.OeMcs()
-            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe(True, rule.MinimumNumberOfAtom() ) )
-            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe(False, rule.MinimumNumberOfAtom() ) )
+            basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( True, rule.MinimumNumberOfAtom() ) )
+            slack_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs_oe( False, rule.MinimumNumberOfAtom() ) )
 
         logging.info( "MCS searching..." )
         mcs_ids = mcs_engine.search_all( mols, opt )
         logging.info( "MCS searching... Done" )
+        
+        #build score matrix from mcs search by applying different rules and then do the graph planning from score matrix.
+        if (opt.build):
+            import build
+            (title_list, id_list, strict_score) = build.matrix(mols, mcs_ids, basic_rule)
+            (title_list, id_list, unstrict_score) = build.matrix(mols, mcs_ids, slack_rule)
+            print "Check id and strict score after build", title_list, id_list, strict_score
+            #raw_input()
+            import GraphGenerator4 as gg4
+            knownCompoundsList = []
+            #knownCompoundsList = ['2-phenylethylammonium', 'CRA-8249', '3-phenylpropylammonium', 'methylbenzamidine', 'APC-1144', 'phenylglycine_drv_1', 'APC-1-762', 'phenylglycine_drv_11', 'APC-7377', 'phenylglycine_drv_16', 'APC-7538', 'phenylglycine_drv_1', 'benzamidine', 'phenylglycine_drv_2', 'benzthiazole_analog_1', 'phenylglycine_drv_5', 'benzthiazole_analog_2', 'phenylglycine_drv_6', 'benzthiazole_analog_3', 'p-isopropylbenzamidine', 'benzthiazole_analog_4', 'p-nButylbenzamidine', 'benzylammonium', 'p-nEthylbenzamidine', 'CHEBI_254833', 'p-nPentylbenzamidine', 'CRA-15566', 'p-nPropylbenzamidine', 'CRA-16847', 'pyridine_template_III', 'CRA-18305']
 
+            gg = gg4.GraphGenerator4(strict_score, unstrict_score, 0.05, 6, title_list, id_list, knownCompoundsList)
+            g = gg.getGraphObject()
+            #graphFile = open('GraphObject','w')
+            #pickle.dump(g, graphFile)
+            import networkx as nx
+            #print "Number of edges from gg4"
+            #print g.number_of_edges()
+            c = nx.connected_component_subgraphs(g)
+            
+            
         # Gets graph (`g') and clusters (`c').
-        logging.info( "Creating graph..." )
-        g, c = graph.gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
+        else:
+            logging.info( "Creating graph..." )
+            g, c = graph.gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
+        graphFile = open('SGraphObject','w')
+        pickle.dump(g, graphFile)
         graph.annotate_nodes_with_smiles ( g )
         graph.annotate_nodes_with_title  ( g )
         graph.annotate_edges_with_smiles ( g )
@@ -100,7 +124,10 @@ def main( molid_list, opt ) :
                 except (ValueError, TypeError) :
                     partial_ring = 0
                 saturation       = float( e.attr["similarity"] ) * scale
-                saturation       = 0.0 if (saturation < 0) else (1.0 if (saturation > 1) else saturation)
+                if (saturation < 0) :
+                    saturation       = 0.0
+                elif (saturation > 1) :
+                    saturation       = 1.0
                 e.attr["color" ] = "0.8396,%f,0.8" % saturation
                 e.attr["weight"] = saturation
                 del e.attr["label"]
@@ -173,6 +200,7 @@ def startup() :
                        help = "simulation input files' base name. When this option is specified, a number of input files "
                        "for FEP simulations will be written out." )
     parser.add_option( "-g", "--graph", metavar = "FILENAME", help = "use the graph as saved in file FILENAME." )
+    parser.add_option( "-b", "--build",default = False, action = "store_true" , help = "build score matrix before doing graph planning")
     parser.add_option( "-t", "--siminp_type", metavar = "TYPE", default = "mae",
                        help = "simulation input file type [mae | gro]" )
     parser.add_option( "-r", "--receptor", default = 0, metavar = "N", type = "int",
