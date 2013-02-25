@@ -276,6 +276,7 @@ class TrimMcs( Rule ) :
             else :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )
+
         # If the deletion results in multiple unconnected fragments, we keep only the biggest one.
         atoms_to_delete = []
         for e in mcs0.molecules()[1:] :
@@ -320,7 +321,7 @@ class TrimMcs_oe( Rule ) :
 
 
 
-    def _delete_broken_ring( self, mol0, mol1, mcs0, strict_ring_checking = True ) :
+    def _delete_broken_ring( self, mol0, mol1, mcs0 ) :
         mcs_ring_atoms = mcs0.ring_atoms()
         mcs_aromatic_atoms = mcs0.aromatic_atoms()
         #print "Check ring size inside rule", mcs0.ring_size()
@@ -338,8 +339,7 @@ class TrimMcs_oe( Rule ) :
         mo1_conflict = []
         #Strict ring check 
         #Delete atoms which change ring size either from mol0 to mcs or from mol1 to mcs
-        if strict_ring_checking:
-
+        if self._strict_ring_checking:
             for i in mcs0_ring_dic.keys():
                 mol0_key = mcs0.atom_prop[i][  "orig_index"]
                 mol1_key = mcs0.atom_prop[i][  "mapped_index"]
