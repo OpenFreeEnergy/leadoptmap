@@ -36,7 +36,7 @@ logging.basicConfig( format  = '%(asctime)s: %(message)s',
 
 
 
-def main( molid_list, opt ) :
+def main( molid_list, opt, args ) :
     """
     @type  molid_list: C{list} of C{str}'s
     @param molid_list: A list of molecule IDs in the C{KBASE}
@@ -68,6 +68,12 @@ def main( molid_list, opt ) :
             (title_list, id_list, unstrict_score) = build.matrix(mols, mcs_ids, slack_rule)
             import GraphGenerator4 as gg4
             knownCompoundsList = []
+            try:
+                with open(args[0] + "/knownCompounds") as kcFile:
+                    knownCompoundsList = kcFile.readlines()
+                knownCompoundsList = [name.strip() for name in knownCompoundsList]
+            except IOError:
+                print "No Known Compounds Listed"
             #knownCompoundsList = ['2-phenylethylammonium', 'CRA-8249', '3-phenylpropylammonium', 'methylbenzamidine', 'APC-1144', 'phenylglycine_drv_1', 'APC-1-762', 'phenylglycine_drv_11', 'APC-7377', 'phenylglycine_drv_16', 'APC-7538', 'phenylglycine_drv_1', 'benzamidine', 'phenylglycine_drv_2', 'benzthiazole_analog_1', 'phenylglycine_drv_5', 'benzthiazole_analog_2', 'phenylglycine_drv_6', 'benzthiazole_analog_3', 'p-isopropylbenzamidine', 'benzthiazole_analog_4', 'p-nButylbenzamidine', 'benzylammonium', 'p-nEthylbenzamidine', 'CHEBI_254833', 'p-nPentylbenzamidine', 'CRA-15566', 'p-nPropylbenzamidine', 'CRA-16847', 'pyridine_template_III', 'CRA-18305']
 
             gg = gg4.GraphGenerator4(strict_score, unstrict_score, 0.05, 6, title_list, id_list, knownCompoundsList)
@@ -237,7 +243,7 @@ def startup() :
     logging.info( "--------------------------------------------" )
     logging.info( "Finish reading structure input files. %d structures in total" % len( molid_list ) )
     if (len( molid_list ) > 1) :
-        main( molid_list, opt )
+        main( molid_list, opt, args )
 
 
         
