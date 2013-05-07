@@ -1,0 +1,7 @@
+Authorship:
+- David Mobley (University of New Orleans and University of California, Irvine)
+- Shuai Liu (formerly University of New Orleans, currently University of California, Irvine)
+- Yujie Wu (Schrodinger Software)
+- Teng Lin (Schrodinger Software)
+- Jonathan Redmann (University of New Orleans)
+- Christopher Summa (University of New Orleans)
