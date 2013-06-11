@@ -246,30 +246,6 @@ def optimize_graph( complete, desired, algo, simi_cutoff ) :
     """
     if (algo == "trim") :
         return trim_cluster( desired, desired.nodes(), 2 )
-    if (algo == "gg4" ) :
-        import numpy
-        id_list       = desired.nodes()
-        size          = len( id_list )
-        strict_scores = numpy.zeros( (size, size,) )
-        slack_scores  = numpy.zeros( (size, size,) )
-        for i in range( size ) :
-            strict_scores[i, i] = 1.0
-            slack_scores [i, i] = 1.0
-            for j in range( i + 1, size ) :
-                id_i = id_list[i]
-                id_j = id_list[j]
-                try :
-                    simi = desired[id_i][id_j][      "similarity"]
-                    slak = desired[id_i][id_j]["slack_similarity"]
-                    strict_scores[i, j] = simi
-                    slack_scores [i, j] = slak
-                    strict_scores[j, i] = simi
-                    slack_scores [j, i] = slak
-                except KeyError :
-                    pass
-        import GraphGenerator4 as gg4
-        generator = gg4.GraphGenerator4( strict_scores, slack_scores, simi_cutoff, max_path_length, id_list )
-        return generator.getGraphObject()
     
 
 def gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff, max_csize, num_c2c ) :
@@ -292,25 +268,28 @@ def gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff, max_csize, num_c2c 
     fh          = open( "simiscore", "w" ) if (logging.getLogger().getEffectiveLevel() == logging.DEBUG) else None
     logging.info( "  Calculating similarity scores..." )
     for id in mcs_ids :
+        #get the id for mol0 and mol1
         id0, id1   = mcs.get_parent_ids( id )
+        #calculate the similarity scores for molecule pair
         simi       = basic_rule.similarity( id0, id1, mcs_id = id )
         slack_simi = slack_rule.similarity( id0, id1, mcs_id = id )
         KBASE.deposit_extra( id, "similarity",             simi )
         KBASE.deposit_extra( id, "slack_similarity", slack_simi )
-        if (simi != slack_simi) :
-            print simi, slack_simi
         all_ids.add( id0 )
         all_ids.add( id1 )
         if (fh) :
             print >> fh, simi
     logging.info( "  Calculating similarity scores... Done" )
     basic_graph.add_nodes_from( all_ids )
-
+    #create a complete graph
     complete = create( basic_graph, mcs_ids, rule.Cutoff( 0 ) )
+    #delete connections with scores lower than simi_cutoff
     desired  = cutoff_graph( complete, simi_cutoff )
+    #get molecule clusters
     clusters = sorted( networkx.connected_components( desired ), cmp = lambda x, y : len( y ) - len( x ) )
 
     logging.info( "  Original number of clusters: %d" % len( clusters ) )
+    #break down big clusters 
     num_big_clusters = 0
     for i, c in enumerate( clusters ) :
         logging.info( "    size of cluster #%02d: %d" % (i, len( c ) ),)

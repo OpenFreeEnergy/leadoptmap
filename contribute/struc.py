@@ -162,7 +162,22 @@ class Struc( object ) :
         """
         raise NotImplementedError( "`ring_atom' method not implemented by subclass" )
 
+    def aromatic_atoms( self ):
+        """
+        Return a set of aromatic atoms.
+        
+        @rtype : C{set} of C{int}
+        @return: A set of atom indices
+        """
+        raise NotImplementedError( "`aromatic_atom' method not implemented by subclass" )
 
+    def ring_size ( self ): 
+        """
+        Returns a dictionary, which is atom's index correspoding to the ring size the atom in.
+        @rtype : C{dic} of C{int} : C{int}
+        @return: A dictionary of atom indices correspoing to the size of the ring they are in.  
+        """
+        raise NotImplementedError( "`ring_size' method not implemented by subclass" )
 
     def bonded_atoms( self, atom_index ) :
         """
@@ -486,6 +501,7 @@ try :
             strucs = read_file( fn )
             for e in strucs :
                 id = KBASE.deposit( e.id(), e )
+                KBASE.deposit_extra(id, "filename", (fn))
                 e.set_id( id )
                 strucid.append( id )
         return strucid
@@ -506,13 +522,17 @@ try:
         """
 
         def __init__( self, struc ) :
+            """
+            `struc' should be a `oechem.OEMol' object.
+            """
             self._struc = struc
-
+            
             self.atom = {}
             for atom in self._struc.GetAtoms():
+                #the default oe atom index is from 0, add 1 to consist with schrodinger's index which start from 1. 
                 oe_idx = atom.GetIdx() + 1
                 if self.atom.has_key(oe_idx):
-                    print "Struc has duplicate atom index : %s need to check"%(oe_idx)
+                    print "Struc has duplicate atom index : %s need to be checked"%(oe_idx)
                 else:
                     self.atom[oe_idx] = atom
             Struc.__init__( self )
@@ -520,6 +540,9 @@ try:
 
 
         def copy( self ) :
+            """
+            Returns a copy of this structure.
+            """
             ret = OeStruc( self._struc.CreateCopy() )
             ret.atom_prop = copy.deepcopy(self.atom_prop)
             return ret
@@ -577,7 +600,7 @@ try:
 
         def total_charge( self ) :
             """
-            Returns net charge of the structure
+            Returns oechem net charge of the structure
             """
             return oechem.OENetCharge( self._struc )
 
@@ -586,6 +609,8 @@ try:
         def is_chiral_atom( self, atom_index ) :
             """                                               
             Returns true if the atom indicated by C{atom_index} is chiral; otherwise, false.
+            @type  atom_index: C{int}
+            @param atom_index: Atom index
             """                                               
             return self.atom[atom_index].IsChiral()
         
@@ -593,6 +618,8 @@ try:
         def chiral_atoms( self ) :
             """
             Returns the indices of chiral atoms.
+            @rtype : C{list} of C{int}
+            @return: A list of atom indices
             """
             ret = []                                          
             ret_atoms = []                                    
@@ -609,6 +636,8 @@ try:
         def ring_atoms( self ) :
             """
             Returns a set of ring atoms.
+            @rtype            : C{set} of C{int}
+            @return           : A set of atom indices
             """
             ret = []                                          
             ret_atoms = []                                    
@@ -622,7 +651,9 @@ try:
         
         def aromatic_atoms ( self ):                          
             """                                               
-            Returns a set of aromatic atoms.                      
+            Returns a set of aromatic atoms. 
+            @rtype            : C{set} of C{int}
+            @return           : A set of atom indices                     
             """                                               
             ret = []                                          
             ret_atoms = []                                    
@@ -635,6 +666,11 @@ try:
             return set( ret )
     
         def ring_size (self):                                 
+            """
+            Returns a dictionary, which is atom's index correspoding to the ring size the atom in.
+            @rtype : C{dic} of C{int} : C{int}
+            @return: A dictionary of atom indices correspoing to the size of the ring they are in.          
+            """
             ring_size = {}                                    
             oechem.OEFindRingAtomsAndBonds(self._struc)       
             nrrings, rings = oechem.OEDetermineRingSystems(self._struc)     
@@ -643,12 +679,10 @@ try:
                 if not ring_dic.has_key(ring_idx):            
                     ring_dic[ring_idx] = []                   
             for key in ring_dic.keys():                       
-                #print "key", key                             
                 if key > 0:                                   
                     ring_dic[key] = rings.count(key)          
                 else:                                         
                     ring_dic[key] = 0                         
-            #print "Inside struc check ring dic", ring_dic     
             for (idx, atom) in enumerate(rings):                            
                 oe_idx = idx +1                                             
                 ring_size [oe_idx] = ring_dic[atom]           
@@ -658,6 +692,11 @@ try:
         def bonded_atoms( self, atom_index ) :
             """
             Returns a list of atom indices of atoms bonded to the indicated atom. 
+            @type  atom_index: C{int}
+            @param atom_index: A single index or a list of indices of the atoms to be deleted
+                                                              
+            @rtype : C{list} of C{int}                        
+            @return: A list of atom indices of atoms bonded to the indicated atom
             """
             ret = []                                          
             #get atom object first to avoid interator problem 
@@ -698,6 +737,9 @@ f a molecule in the structure. The first
         def delete_atom( self, atom_index ) :
             """
             Deletes an atom.
+            @type  atom_index: C{int} or C{list} of C{int}    
+            @param atom_index: A single index or a list of indices of the atoms to be deleted
+
             """
             if (not isinstance( atom_index, list )) :
                 atom_index = [atom_index,]
@@ -737,7 +779,11 @@ f a molecule in the structure. The first
             return None
 
         def write (self , filename, format = "mol2", mode = "w"):
-            #print "Struc check write format", oechem.oemolostream(filename)
+            """                                               
+            Writes this structure into a file in the designated format.     
+            @type  format: C{str}                  
+            @param format: Format must be one of the following case-sensitive strings: "pdb", "mol2", "xyz","sdf" and "smi"                   
+            """
             if mode == "a":                                   
                 raise ValueError("OeStruc write doesn't support append method")
             elif mode == "w":                                 
@@ -750,11 +796,14 @@ f a molecule in the structure. The first
                 elif format == "xyz":                         
                     ofs = oechem.oemolostream(filename + '.xyz')
                     ofs.SetFormat(oechem.OEFormat_XYZ)        
+                elif format == "sdf":                         
+                    ofs = oechem.oemolostream(filename + '.sdf')
+                    ofs.SetFormat(oechem.OEFormat_SDF)        
+                elif format == "smi":                         
+                    ofs = oechem.oemolostream(filename + '.smi')
+                    ofs.SetFormat(oechem.OEFormat_SMI)        
             else:                                             
                 raise ValueError( "Invalid value for `mode' argument: '%s', should be one of 'a' and 'w'.")
-            #format = OEFormat_MOL2                           
-            #ofs.SetFormat(OEFormat_MOL2)                     
-            #return oechem.OEWriteMol2File(ofs, self._struc  )
             return oechem.OEWriteMolecule(ofs, self._struc  )
         
             
@@ -762,6 +811,8 @@ f a molecule in the structure. The first
         """
         Reads a .mol2 file and returns title of molecule , base molecule object 
 and `OEMol' objects.
+        @type  filename: C{str}                               
+        @param filename: Name of the structure file
         """
         ret = []
         istream = oechem.oemolistream()
@@ -781,14 +832,14 @@ and `OEMol' objects.
 
     def read_n_files( filenames ) :
         """                                                   
-        `filenames' is a list of file names. The format of each file will be det
-ermined from the file's extension name. Reads the files and deposits them into the `KBASE'. Returns a list of keys.                                                           
+        `filenames' is a list of file names. Reads the files and deposits them into the `KBASE'. Returns a list of keys.                                                           
         """                                                   
         strucid = []
         for fn in filenames :
             strucs = read_file( fn )
             for e in strucs:                                  
                 id = KBASE.deposit( e.id(), e )               
+                KBASE.deposit_extra(id, "filename", (fn))
                 e.set_id( id )                                
                 strucid.append( id )                          
         return strucid

@@ -8,8 +8,26 @@ How to run on Schrodinger's infrastructure
   algorithm that 'main.py' depends on.
 - The input structure files should be in either the mol2 or the mae file formats.
 
-main_oe.py   using basic rule = Trimcs_oe instead using the same Trimcs
 
-rule_oe.py using Trimcs_oe instead using Trimcs. And change the deposit trimcs method and format
+How to run on Openeye's infrastructure
 
-nx2img_oe.py using different dot render. Trying to handle the trimcs in Openeye way and align them in different way 
+- Example command:
+    #step 1. to do the mcs searching and generate dot, pkl graph files which contain graph informations
+        python main.py mol2_file -o filename
+    
+    #software needed for step 1: 
+        outside software: openeye tookit (oechem);  graphviz for generating the dot file; networkx for using the graph features.
+        inside script: main.py mcs.py struc.py kbase.py rule.py similarity.py graph.py 
+
+    #note :  if we want to use Jonathan's graph planning method, we need to add build option like
+        python main.py mol2_file -b -o filename
+    # In the build option, user need to provide known compound list(here the knowncompound list should be in the same directory as mol2 file, and the name should be consistant with the mol2 file name)
+    
+    #step 2. to generate the svg file by using the pkl file generated from step 1.
+        python nx2img.py filename.pkl filename2.svg -s 
+
+    #software needed for step 2: 
+        outside software: pydot ralated script: pydot.py pyparsing.py dot_parser.py ; openeye tookit(oechem oedepict)
+        inside script: nx2img.py imggenerator.py 
+    
+    

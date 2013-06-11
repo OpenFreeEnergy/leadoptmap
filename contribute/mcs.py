@@ -97,51 +97,51 @@ try :
     import openeye.oechem as oechem
 
     class OeMcs( Mcs ) :
-        def __init__( self, atom_expr = oechem.OEExprOpts_IntType, bond_expr = 0, ringchecking = 'Strict', is_approximate = True ) :
+        def __init__( self, atom_expr = oechem.OEExprOpts_IntType, bond_expr = 0, is_approximate = True ) :
             """
-            (To be implemented)
+            @type  atom_expr:       C{str}
+            @param atom_expr:       Openeye oechem atom expression option. Atoms with same int value will be regarded equally. Use the SetIntType method to set Int type for individual atoms. For more details and more atom expression choices, please check OEExprOpts part Openeye oechem documentation.
+            @type  bond_expr:       C{str}
+            @param bond_expr:       Openeye oechem bond expression option. Set to be zero to consider all the bond equally and match freely. For more details and more bond expression choices, please check OEExprOpts part Openeye oechem documentation.. 
+            @type  is_approximate:  C{bool}
+            @param is_approximate:  1. Ture: Use the approximate MCSS method
+                                    2. False: Use the exhaustive MCSS method    
             """
             self._atom_expr      = atom_expr
             self._bond_expr      = bond_expr
-            self._ringchecking   = ringchecking
             self._is_approximate = is_approximate
-            
-
 
         def search( self, mol0, mol1 ) :
-            """
-            
-            """
             mol0 = mol0._struc
             mol1 = mol1._struc
 
-            # Deletes hydrogen atoms before doing MCS search.
             p0 = mol0.CreateCopy()
             p1 = mol1.CreateCopy()
+            #set atom int type. 
             for mol in (p0, p1,) :
                 for atom in mol.GetAtoms() :
                     if (atom.IsHydrogen()) :
                         atom.SetIntType(1)
                     else:
                         atom.SetIntType(2)
+            #suppress hydrogens before mcs search
             oechem.OESuppressHydrogens(p0)              
             oechem.OESuppressHydrogens(p1)     
             if (self._is_approximate) :
                 mcss = oechem.OEMCSSearch( p1, self._atom_expr, self._bond_expr, oechem.OEMCSType_Approximate )
             else:
                 mcss = oechem.OEMCSSearch( p1, self._atom_expr, self._bond_expr )
-
-            # Shall we just use 1 as the mininum number of common atoms here?
-            # We can later deal with the requirement of different minimum number of common atoms.
+            #set minimum atom of the mcs
             mcss.SetMinAtoms( 1 )
+            #set the function to evalue the mcs search 
             mcss.SetMCSFunc( oechem.OEMCSMaxAtomsCompleteCycles(1.5) )
 
             # There could be multiple matches. We select the one with the maximum number of atoms.
             # If there are more than 1 matches with the same maximum number of atoms, we arbitrarily select the first one.
             mcs_mol = None
             max_num = 0
+            #do the mcs search
             for match in mcss.Match( p0, True ) :
-                # Gets the number of atoms in the MCS.
                 num_atom = 0
                 mcs_tmp  = oechem.OEMol()
                 oechem.OESubsetMol( mcs_tmp, match, True )
@@ -158,36 +158,21 @@ try :
                     for matchpair in match.GetAtoms() :
                         atom_match0.append( matchpair.target .GetIdx()+1 )
                         atom_match1.append( matchpair.pattern.GetIdx()+1 )
-                    
+            #dump search result to kbase        
             if (mcs_mol) :
                 mol0    = struc.OeStruc( mol0 )
                 mol1    = struc.OeStruc( mol1 )
                 mcs_mol = struc.OeStruc( mcs_mol )
                 return self.deposit_to_kbase( mol0.id(), mol1.id(), atom_match0, atom_match1 )
-            # Returns `None' if no MCS found.
-            
-        
 
         def search_all( self, mols, opt ) :
-            """
-            N.B.: O(N^2). Needs optimization.
-            """
-            title_vs_id = {}
             ret     = []
             num_mol = len( mols )
-            print "check how many mols in total", num_mol
             for i in range( num_mol ) :
-                title = mols[i]._struc.GetTitle()
-                if not title_vs_id.has_key(title):
-                    title_vs_id[title] = mols[i].id()
                 for j in range( i+1, num_mol ) :
-                
                     result = self.search( mols[i], mols[j] )
                     if (result) :
                         ret.append( result )
-            file_title_v_id = open("title_vs_id.pickle","w")
-            pickle.dump(title_vs_id, file_title_v_id)
-            file_title_v_id.close()
             return ret
 
 except ImportError :
@@ -349,7 +334,7 @@ def get_parent_ids( mcs_id ) :
 
 def get_struc( mcs_id ) :
     """
-
+    get the mcs strcuture based on mcs_id
     """
     title                    = KBASE.ask( mcs_id                )
     id0, id1                 = KBASE.ask( mcs_id, "mcs-parents" )

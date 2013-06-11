@@ -51,7 +51,6 @@ class Rule( object ) :
         @type  id1: C{str}
         @param id1: ID of the second molecule in the C{KBASE}
         """
-        #print "inside rule.py main rule check id", id0,id1
         result = self._similarity( id0, id1, **kwarg )
         if (result > 0) :
             for e in self._subrules :
@@ -202,7 +201,6 @@ class TrimMcs( Rule ) :
                 conflict |= atom_to_add
                 
         def extend_conflict_to_nonaromatic_ring( mol, conflict ) :
-            # We have to be careful here. When we delete non-aromatic rings, we should avoid deleting atoms involved in both
             # aromatic and no-aromatic rings.
             ring_agrps = mol.ring_atoms( aromaticity = -1, group = True )
             arom_rings = mol.ring_atoms( aromaticity =  1, group = True )
@@ -294,8 +292,6 @@ class TrimMcs( Rule ) :
         try :
             smarts1 = mol1.smarts( atom_list1 )
         except ValueError :
-            #print atom_list0, atom_list1
-            #print mol0.title(), mol1.title()
             smarts1 = ""
         
         KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smarts0, id1:smarts1,} )
@@ -322,18 +318,16 @@ class TrimMcs_oe( Rule ) :
 
 
     def _delete_broken_ring( self, mol0, mol1, mcs0 ) :
+        #store atom informations like ring atom, aromatic atom, ring size of the atom belongs to. 
         mcs_ring_atoms = mcs0.ring_atoms()
         mcs_aromatic_atoms = mcs0.aromatic_atoms()
-        #print "Check ring size inside rule", mcs0.ring_size()
         mcs0_ring_dic = mcs0.ring_size()
         mcs_nonr_atoms = set( range( 1, len( mcs0.atom ) + 1 ) ) - mcs_ring_atoms
         mo0_ring_atoms = mol0.ring_atoms()
         mo0_aromatic_atoms = mol0.aromatic_atoms()
-        #print "Check ring size inside rule mol0", mol0.ring_size()
         mol0_ring_dic = mol0.ring_size()
         mo1_ring_atoms = mol1.ring_atoms()
         mo1_aromatic_atoms = mol1.aromatic_atoms()
-        #print "Check ring size inside rule mol1", mol1.ring_size()
         mol1_ring_dic = mol1.ring_size()
         mo0_conflict = []
         mo1_conflict = []
@@ -345,12 +339,9 @@ class TrimMcs_oe( Rule ) :
                 mol1_key = mcs0.atom_prop[i][  "mapped_index"]
 
                 if mcs0_ring_dic[i] <> mol0_ring_dic[mol0_key]:
-                    #print "The ring size is different mcs0 : %s, mol0 :%s i : %s \n" %(mcs0_ring_dic[i], mol0_ring_dic[mol0_key], i)
                     mo0_conflict.append(i)
                 elif mcs0_ring_dic[i] <> mol1_ring_dic[mol1_key]:
-                    #print "The ring size is different mcs0 : %s, mol1 :%s i : %s \n" %(mcs0_ring_dic[i], mol1_ring_dic[mol1_key], i)
                     mo1_conflict.append(i)
-            #print "Check confilict idx" , mo0_conflict, mo1_conflict
 
         #Unstrict ring check 
         #Delete all atoms which either (a) in a ring in mol0 but not in a ring in mcs, or (b) in a ring in mol1 but not in a ring in mcs, or (c) in a ring in mcs and not in aromatic ring in either mcs, mol0, mol1 if the ring size is changed from mol0 to mcs or mol1 to mcs.  
@@ -358,11 +349,12 @@ class TrimMcs_oe( Rule ) :
             for i in mcs0_ring_dic.keys():                    
                 mol0_key = mcs0.atom_prop[i][  "orig_index"]  
                 mol1_key = mcs0.atom_prop[i][  "mapped_index"]
-                                                              
+                #delete atoms for case (a) and case (b)                     
                 if mcs0_ring_dic[i] == 0 and mol0_ring_dic[mol0_key] > 0:   
                     mo0_conflict.append(i)                    
                 elif mcs0_ring_dic[i] == 0 and mol1_ring_dic[mol1_key] >0:  
-                    mo1_conflict.append(i)                    
+                    mo1_conflict.append(i)
+                #delete atoms for case (c)                    
                 elif mcs0_ring_dic[i] > 0 and (not i in mcs_aromatic_atoms or not mol0_key in mo0_aromatic_atoms or not mol1_key in mo1_aromatic_atoms):
                     if mcs0_ring_dic[i] <> mol0_ring_dic[mol0_key]:         
                         mo0_conflict.append(i)                
@@ -387,6 +379,7 @@ class TrimMcs_oe( Rule ) :
         chiral_atoms.sort( reverse = True )
         for atom_index in chiral_atoms :
             if (atom_index in ring_atoms) :
+                #if the chiral atom is in a ring, delete atoms attached to it but not in ring.
                 bonded_atoms = set( mcs0.bonded_atoms( atom_index ) ) - ring_atoms
                 if (bonded_atoms) :
                     i = 0
@@ -408,13 +401,10 @@ class TrimMcs_oe( Rule ) :
                 mcs0 = mcs0.copy()
 
         # If the deletion results in multiple unconnected fragments, we keep only the biggest one.
-        #print "After the deletion of chiral atoms"
-        #raw_input()
         mcs0 = mcs0.copy()
         atoms_to_delete = []
         for e in mcs0.molecules()[1:] :
             atoms_to_delete.extend( e )
-        #print "Rule Atom to delete", atoms_to_delete
         mcs0.delete_atom( atoms_to_delete )
         mcs0 = mcs0.copy()
         partial_ring         = self._delete_broken_ring( mol0, mol1, mcs0 )
@@ -422,9 +412,10 @@ class TrimMcs_oe( Rule ) :
         atoms_to_delete_2 = []
         for e in mcs0.molecules()[1:] :
             atoms_to_delete_2.extend( e )
-        #print "Rule Atom to delete", atoms_to_delete
         mcs0.delete_atom( atoms_to_delete_2 )
+        #Here is different from schrodinger's method. Since openeye cannot save mcs searching results as smart strings. Using smiles stirng instead for later layout.  
         smiles0 = mcs0.smiles()
+        #Arbitrarily set the simles0 = smiles1 (do not considering the mcs searching difference between mol0 matching to mol1 vs mol1 matching to mol0)
         smiles1 = smiles0
 
         KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smiles0, id1:smiles1,} )

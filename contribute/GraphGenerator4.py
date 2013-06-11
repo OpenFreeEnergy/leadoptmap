@@ -1,7 +1,5 @@
 """
-This software is part of Lead Optimization Mapper (LOMAP), and is distributed under the BSD license. See LICENSE.txt for details of the license, and AUTHORS.txt for the authors list.
-
-For this particular module, the Graph Genererator Class:
+Graph Genererator Class:
 
 Developed by:
  Summa Lab, Dept. of Computer Science, University of New Orleans

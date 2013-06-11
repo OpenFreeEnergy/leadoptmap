@@ -41,13 +41,14 @@ def main( molid_list, opt, args ) :
     @type  molid_list: C{list} of C{str}'s
     @param molid_list: A list of molecule IDs in the C{KBASE}
     """
+    #load mols files 
     if (opt.graph) :
         g = pickle.load( open( opt.graph ) )
     else :
         mols = []
         for id in molid_list[opt.receptor:] :
             mols.append( KBASE.ask( id ) )
-
+    #choose mcs search engine and rules 
         if   (struc.infrastructure == "schrodinger") : 
             mcs_engine = mcs.SchrodMcs( 1 )
             basic_rule = rule.Mcs( rule.EqualCharge(), rule.TrimMcs( True,  rule.MinimumNumberOfAtom() ) )
@@ -61,34 +62,31 @@ def main( molid_list, opt, args ) :
         mcs_ids = mcs_engine.search_all( mols, opt )
         logging.info( "MCS searching... Done" )
         
-        #build score matrix from mcs search by applying different rules and then do the graph planning from score matrix.
+        #build score matrix from mcs search enable Jonathan's graph planning algorithm
         if (opt.build):
             import build
-            (title_list, id_list, strict_score) = build.matrix(mols, mcs_ids, basic_rule)
-            (title_list, id_list, unstrict_score) = build.matrix(mols, mcs_ids, slack_rule)
+            (title_list, id_list, filename_vs_title, strict_score) = build.matrix(mols, mcs_ids, basic_rule)
+            (title_list, id_list, filename_vs_title, unstrict_score) = build.matrix(mols, mcs_ids, slack_rule)
             import GraphGenerator4 as gg4
             knownCompoundsList = []
+            #load the name list of coumpounds with known experimental value if there is any
             try:
                 with open(args[0] + "/knownCompounds") as kcFile:
                     knownCompoundsList = kcFile.readlines()
-                knownCompoundsList = [name.strip() for name in knownCompoundsList]
+                knownCompoundsList = [filename_vs_title[name.strip()] for name in knownCompoundsList]
             except IOError:
                 print "No Known Compounds Listed"
-            #knownCompoundsList = ['2-phenylethylammonium', 'CRA-8249', '3-phenylpropylammonium', 'methylbenzamidine', 'APC-1144', 'phenylglycine_drv_1', 'APC-1-762', 'phenylglycine_drv_11', 'APC-7377', 'phenylglycine_drv_16', 'APC-7538', 'phenylglycine_drv_1', 'benzamidine', 'phenylglycine_drv_2', 'benzthiazole_analog_1', 'phenylglycine_drv_5', 'benzthiazole_analog_2', 'phenylglycine_drv_6', 'benzthiazole_analog_3', 'p-isopropylbenzamidine', 'benzthiazole_analog_4', 'p-nButylbenzamidine', 'benzylammonium', 'p-nEthylbenzamidine', 'CHEBI_254833', 'p-nPentylbenzamidine', 'CRA-15566', 'p-nPropylbenzamidine', 'CRA-16847', 'pyridine_template_III', 'CRA-18305']
 
             gg = gg4.GraphGenerator4(strict_score, unstrict_score, 0.05, 6, title_list, id_list, knownCompoundsList)
             g = gg.getGraphObject()
             build.add_mcs_id(mcs_ids, g)
-            import networkx as nx
-            c = nx.connected_component_subgraphs(g)
+            c = networkx.connected_component_subgraphs(g)
             
             
-        # Gets graph (`g') and clusters (`c').
+        # Gets graph (`g') and clusters (`c') using schrodinger's graph planning algorithm
         else:
             logging.info( "Creating graph..." )
             g, c = graph.gen_graph( mcs_ids, basic_rule, slack_rule, simi_cutoff = 0.05, max_csize = 100, num_c2c = 1 )
-        graphFile = open('SGraphObject','w')
-        pickle.dump(g, graphFile)
         graph.annotate_nodes_with_smiles ( g )
         graph.annotate_nodes_with_title  ( g )
         graph.annotate_edges_with_smiles ( g )
@@ -104,13 +102,14 @@ def main( molid_list, opt, args ) :
             titles.sort()
             for t in titles :
                 logging.debug( "DEBUG:  %s" % t )
- 
+        # store graph for reusing and analysing
         pkl_fname = opt.output + ".pkl"
         pkl_fh    = open( pkl_fname, "w" )
         pickle.dump( g, pkl_fh )
         pkl_fh.close()
     
         try :
+            #use pygraphviz for graph layout
             import graphviz
             
             ag = networkx.to_agraph( g )
@@ -138,6 +137,7 @@ def main( molid_list, opt, args ) :
     edges = g.edges( data = True )
     logging.info( "%d edges in total" % len( edges ) )
     
+    #generate schrodinger FEP input files
     if (opt.siminp) :
         if (opt.siminp_type == "gro") :
             raise NotImplementedError( "Support for writing Gromacs input files is not yet implemented." )
