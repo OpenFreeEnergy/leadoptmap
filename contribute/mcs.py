@@ -258,19 +258,12 @@ try :
 
                 if (os.path.isfile( mae_fname )) :
                     os.remove( mae_fname )
-                title_vs_id = {}
 
                 for mol in mols :
                     title = mol.title()
                     mol.set_title( mol.id() )
                     mol.write( mae_fname )
                     mol.set_title( title )
-                    if not title_vs_id.has_key(title):
-                        title_vs_id[title] = mol.id()
-                file_title_v_id = open("title_vs_id.pickle","w")
-                pickle.dump(title_vs_id, file_title_v_id)
-                file_title_v_id.close()
-                    
                 cmd          = [self._cmd,
                                 "-imae",     mae_fname,
                                 "-opw",      out_fname,
