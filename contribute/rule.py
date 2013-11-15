@@ -269,8 +269,6 @@ class TrimMcs( Rule ) :
                             i = atom
                             n = m
                     mcs0.delete_atom( i )
-                else :
-                    logging.warn( "WARNING: Cannot delete chiral atom #%d in structure: %s" % (atom_index, mcs0.title(),) )
             else :
                 # If the chiral atom is not a ring atom, we simply delete it.
                 mcs0.delete_atom( atom_index )

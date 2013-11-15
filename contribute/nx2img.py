@@ -219,7 +219,7 @@ class DotRender:
 
 if __name__ == '__main__':
     usage = \
-    """usage: %prog [options] <input.pkl> <output.png>
+    """usage: %prog [options] <input.pkl> <output.svg>
     A script to generate an image file from a networkx graph pickle file. 
     Each node must have a SMILES attribute that represents the associated molecule.
     """

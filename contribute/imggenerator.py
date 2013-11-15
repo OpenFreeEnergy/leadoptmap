@@ -197,7 +197,6 @@ try:
         """
         def __init__(self):
             ImgGenerator.__init__(self)
-            self.register('png', self.smiles2svg)
             self.register('svg', self.smiles2svg)
         
         def smiles2mol(self , smiles):

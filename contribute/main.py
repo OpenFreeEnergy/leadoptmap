@@ -20,7 +20,7 @@ import logging
 try :
     import graphviz
 except ImportError :
-    print "\nWARNING: Graphviz is not installed. Cannot write a .dot output file.\n"
+    print "\nWARNING: pygraphviz is not installed. Cannot write a .dot output file.\n"
 
 
 
@@ -132,7 +132,7 @@ def main( molid_list, opt, args ) :
                     e.attr["style"] = "dashed"
             ag.write( opt.output + ".dot" )
         except ImportError :
-            logging.warn( "WARNING: Graphviz is not installed. Cannot write a .dot output file." )
+            logging.warn( "WARNING: pygraphviz is not installed. Cannot write a .dot output file." )
 
     edges = g.edges( data = True )
     logging.info( "%d edges in total" % len( edges ) )
