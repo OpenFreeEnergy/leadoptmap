@@ -29,7 +29,7 @@ How to run on Openeye's infrastructure
         #note: for openeye infrastructure, we only support the svg format as theoutput graph format and the final svg depends on intermediate svg files so we need to add save option "-s" at the end.
 
     #software needed for step 2: 
-        #outside software: openeye tookit(oechem oedepict) ; graphviz for graph rending
+        #outside software: openeye tookit(oechem oedepict) ; graphviz for graph rending, pydot related codes for graph layout: pyparsing.py, pydot.py, dot_parser.py
         #inside script: nx2img.py imggenerator.py 
     
     

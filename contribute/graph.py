@@ -408,8 +408,10 @@ def annotate_edges_with_matches( g ) :
             mol1        = KBASE.ask( e[1] )
             mcs_matches = KBASE.ask( mcs_id, "mcs-matches" )
             trimmed_mcs = KBASE.ask( mcs_id, "trimmed-mcs" )
+            layout_mcs = KBASE.ask( mcs_id, "layout_mcs" )
             g[e[0]][e[1]]["original-mcs"] = {e[0]:mol0.smarts( mcs_matches[e[0]] ), e[1]:mol1.smarts( mcs_matches[e[1]] ),}
             g[e[0]][e[1]][ "trimmed-mcs"] = trimmed_mcs
+            g[e[0]][e[1]][ "layout_mcs"] = layout_mcs
         except KeyError :
             pass
 

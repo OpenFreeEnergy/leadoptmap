@@ -202,6 +202,8 @@ class DotRender:
                         if attr_name == 'SMILES':
 
                             img_fname = self._getImgFname("edge%d"%(edge_index))
+                            if edge.get("layout_mcs"):
+                                attr = edge.get("layout_mcs")
                             self._img_generator.generate(attr, img_fname)
                             render.addImage(img_fname)
                             self._img_list.append(img_fname)    

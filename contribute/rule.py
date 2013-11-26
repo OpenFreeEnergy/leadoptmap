@@ -294,6 +294,7 @@ class TrimMcs( Rule ) :
         
         KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smarts0, id1:smarts1,} )
         KBASE.deposit_extra( mcs_id, "partial_ring", len( partial_ring ) )
+        KBASE.deposit_extra( mcs_id, "layout_mcs", mcs0.smiles() )
 
         num_heavy_atoms = len( mcs0.heavy_atoms() )
         num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
@@ -418,6 +419,7 @@ class TrimMcs_oe( Rule ) :
 
         KBASE.deposit_extra( mcs_id, "trimmed-mcs",  {id0:smiles0, id1:smiles1,} )
         KBASE.deposit_extra( mcs_id, "partial_ring", len( partial_ring ) )
+        KBASE.deposit_extra( mcs_id, "layout_mcs", smiles0 )
 
         num_heavy_atoms = len( mcs0.heavy_atoms() )
         num_light_atoms = len( mcs0.atom ) - num_heavy_atoms
